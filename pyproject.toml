@@ -19,7 +19,6 @@ yt-dlp = "^2024.7.25"
 [tool.poetry.scripts]
 # 這個設定讓您可以使用 'poetry run summarize' 來執行摘要腳本
 summarize = "summarize:main"
-publish-anytype = "publish_to_anytype:main"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]

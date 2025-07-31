@@ -1,6 +1,6 @@
 # Heaven Vedio Summarizer
 
-本專案旨在自動化一個完整的工作流程：從指定的 YouTube 播放清單下載影片字幕，利用 Google Gemini AI 產生結構化摘要，最後將彙整後的內容同步發佈到本專案的 **GitLab Wiki** 和 **Anytype**。
+本專案旨在自動化一個完整的工作流程：從指定的 YouTube 播放清單下載影片字幕，利用 Google Gemini AI 產生結構化摘要，最後將彙整後的內容同步發佈到本專案的 **GitLab Wiki**。
 
 整個流程可以手動在本地端執行，也可以透過 GitLab CI/CD 進行排程全自動化。
 
@@ -9,7 +9,7 @@
 -   **自動下載**：從指定的 YouTube 播放清單下載新的影片 metadata 和字幕，並透過紀錄檔避免重複處理。
 -   **AI 摘要**：使用 `gemini-cli`，根據可自訂的提示 (Prompt)，從影片字幕產生結構化的重點摘要。
 -   **Markdown 彙整**：將所有影片的摘要彙整至單一、格式優美的 Markdown 檔案中，並自動包含原始影片連結。
--   **多平台發佈**：自動將最新的摘要內容推送到專案的 GitLab Wiki 首頁，並同步更新到指定的 Anytype 物件。
+-   **Wiki 發佈**：自動將最新的摘要內容推送到專案的 GitLab Wiki 首頁。
 -   **CI/CD 自動化**：內建 `.gitlab-ci.yml` 設定檔，可在 GitLab 上設定排程，實現無人值守的全自動化執行。
 
 ## ⚙️ 環境準備
@@ -54,18 +54,6 @@
     # 你的 Google AI Studio API Key。請保密。
     # 取得位置: https://aistudio.google.com/app/apikey
     GEMINI_API_KEY="your_gemini_api_key_here"
-
-    # --- Anytype 發佈設定 (可選，用於本地端測試) ---    
-    # 你的 Anytype API 端點。
-    # 如果是 self-host，請填寫你的 coordinator 節點位址 (例如 http://127.0.0.1:1004)。
-    ANYTYPE_API_ENDPOINT="https://api.anytype.io"
-
-    # 你的 Anytype API Key。請保密。
-    ANYTYPE_API_KEY="your_anytype_api_key_here"
-
-    # 你希望更新的 Anytype 物件 ID。
-    # 可在 Anytype App 中，於指定頁面點擊右上角 "..." 選單，選擇 "Copy link to object" 來取得。
-    ANYTYPE_OBJECT_ID="your_anytype_object_id_here"
     ```
 
 ## 🏃‍♂️ 如何執行
@@ -82,23 +70,14 @@
     poetry run summarize
     ```
 
-3.  **第三步 (可選)：手動發佈**
-    ```bash
-    # 發佈到 Anytype
-    poetry run publish-anytype
-    ```
-
 ## 🦊 GitLab CI/CD 自動化
 
 本專案已包含 `.gitlab-ci.yml` 設定檔，可直接在 GitLab 上實現自動化。
 
 -   **觸發條件**：Pipeline 只會在「排程」或「手動觸發」時執行，避免推播程式碼時觸發。
--   **執行階段**：流程分為 `fetch`、`summarize`、`publish`、`commit` 四個階段。`publish` 階段會並行發佈到 GitLab Wiki 和 Anytype，且此階段的失敗不會中斷後續的 `commit` 階段。
+-   **執行階段**：流程分為 `fetch`、`summarize`、`publish`、`commit` 四個階段。`publish` 階段會將摘要發佈到 GitLab Wiki，且此階段的失敗不會中斷後續的 `commit` 階段。
 -   **CI/CD 變數設定**：要啟用自動化，你必須在 GitLab 專案的 **Settings > CI/CD > Variables** 中設定以下變數。這些變數的作用與 `.env` 檔案相同，但用於 CI/CD 環境。
     -   `GEMINI_API_KEY`
     -   `GL_TOKEN`：用於將變更 commit 回主倉庫與 Wiki 倉庫的 GitLab Project Access Token。**此 Token 必須具備 `write_repository` 權限**。
     -   `GITLAB_USER_NAME`：CI commit 時顯示的機器人名稱 (例如 "GitLab CI Bot")。
     -   `GITLAB_USER_EMAIL`：CI commit 時顯示的機器人 Email。
-    -   `ANYTYPE_API_KEY` (**必要**，你的 Anytype API Key)。
-    -   `ANYTYPE_OBJECT_ID` (**必要**，你要更新的頁面 ID)。
-    -   `ANYTYPE_API_ENDPOINT` (若為 self-host，請填寫你的 coordinator 節點位址)。

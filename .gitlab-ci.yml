@@ -103,24 +103,6 @@ summarize_content:
       - status.md
     expire_in: 1 hour
 
-# --- 第三階段：發佈到 Anytype ---
-publish_to_anytype:
-  stage: publish
-  allow_failure: true # 不論成功或失敗，都繼續執行後續 stage
-  extends: .base_job
-  needs:
-    - job: summarize_content
-      artifacts: true
-  script:
-    # 從 GitLab CI/CD 變數建立 .env 檔案，讓 Python 腳本可以讀取
-    - echo "正在從 CI/CD 變數建立 .env 檔案..."
-    - echo "SUMMARY_FILE=${CI_PROJECT_DIR}/影片重點摘要.md" > .env
-    - echo "ANYTYPE_API_ENDPOINT=${ANYTYPE_API_ENDPOINT}" >> .env
-    - echo "ANYTYPE_API_KEY=${ANYTYPE_API_KEY}" >> .env
-    - echo "ANYTYPE_OBJECT_ID=${ANYTYPE_OBJECT_ID}" >> .env
-    - echo "正在執行 publish_to_anytype.py..."
-    - poetry run publish-anytype
-
 # --- 第三階段：發佈到 GitLab Wiki ---
 publish_to_wiki:
   stage: publish
