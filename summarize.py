@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-import os
 import json
+import os
 import re
 import subprocess
-import time
 import sys
+import time
 from pathlib import Path
 
 try:
@@ -65,6 +65,7 @@ DEFAULT_PROMPT_TEMPLATE = """請根據以下影片字幕內容，為這部佛學
 \"\"\"
 """
 
+
 def load_prompt_template() -> str:
     """
     載入提示模板，優先順序如下：
@@ -79,6 +80,7 @@ def load_prompt_template() -> str:
         print(f"警告：讀取提示模板檔案 '{PROMPT_TEMPLATE_FILE}' 失敗: {e}", file=sys.stderr)
 
     return DEFAULT_PROMPT_TEMPLATE
+
 
 PROMPT_TEMPLATE = load_prompt_template()
 
@@ -134,10 +136,8 @@ def summarize_with_gemini(text: str) -> (str, bool):
 
     # 定義要依序嘗試的模型列表。
     # (模型參數, 模型名稱) - 模型參數為 None 代表使用 gemini-cli 的預設模型。
-    models_to_try = [
-        (None, "預設模型 (gemini-1.5-pro)"),
-        ('gemini-2.5-flash', "備用模型 (gemini-2.5-flash)")
-    ]
+    models_to_try = [(None, "預設模型 (gemini-1.5-pro)"),
+                     ('gemini-2.5-flash', "備用模型 (gemini-2.5-flash)")]
 
     initial_delay = 5  # seconds
     last_error = ""
@@ -149,15 +149,15 @@ def summarize_with_gemini(text: str) -> (str, bool):
             command.extend(['-m', model])
         command.extend(['-p', prompt])
 
-        tqdm.write(f"正在使用 {model_name} 進行摘要 (嘗試 {i + 1}/{len(models_to_try)})...")
+        tqdm.write(
+            f"正在使用 {model_name} 進行摘要 (嘗試 {i + 1}/{len(models_to_try)})...")
 
         try:
-            result = subprocess.run(
-                command,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                encoding='utf-8',
-                check=True)
+            result = subprocess.run(command,
+                                    stdout=subprocess.PIPE,
+                                    stderr=subprocess.PIPE,
+                                    encoding='utf-8',
+                                    check=True)
             summary = result.stdout.strip()
             if summary.startswith("Loaded cached credentials."):
                 summary = summary.replace("Loaded cached credentials.", "",
@@ -212,11 +212,17 @@ def write_status_report(processing_log: list):
         with open(STATUS_FILE, 'w', encoding='utf-8') as f:
             f.write("# 影片處理狀態報告\n\n")
             f.write("此報告總結了最近一次執行 `summarize.py` 腳本時處理的影片狀態。\n\n")
-            f.write("| 日期       | 主題                               | 處理狀態   |\n")
-            f.write("|:-----------|:-----------------------------------|:-----------|\n")
+            f.write(
+                "| 日期       | 主題                               | 處理狀態   |\n")
+            f.write(
+                "|:-----------|:-----------------------------------|:-----------|\n"
+            )
             for entry in sorted_log:
-                title = entry['title'][:30]
-                f.write(f"| {entry['date']} | {title:<30} | {entry['status']}     |\n")
+                title = entry['title'][:28]  # 稍微縮短標題以容納 icon
+                icon = status_icons.get(entry['status'], '❓')
+                f.write(
+                    f"| {entry['date']} | {title:<28} | {icon} {entry['status']}     |\n"
+                )
         print(f"狀態報告已成功寫入 '{STATUS_FILE}'")
     except IOError as e:
         print(f"錯誤：寫入狀態報告 '{STATUS_FILE}' 失敗: {e}", file=sys.stderr)
@@ -256,7 +262,11 @@ def main():
 
         if video_date in processed_dates:
             # 如果影片已處理過，直接記錄狀態並跳過
-            processing_log.append({'date': video_date, 'title': clean_title, 'status': '已存在'})
+            processing_log.append({
+                'date': video_date,
+                'title': clean_title,
+                'status': '已存在'
+            })
             continue
 
         # 準備處理新的影片
@@ -268,7 +278,12 @@ def main():
         except (IOError, json.JSONDecodeError) as e:
             print(f"警告：讀取或解析 info.json 檔案失敗 '{filepath.name}': {e}")
 
-        video_data = {'video_date': video_date, 'clean_title': clean_title, 'info_filepath': filepath, 'video_url': video_url}
+        video_data = {
+            'video_date': video_date,
+            'clean_title': clean_title,
+            'info_filepath': filepath,
+            'video_url': video_url
+        }
         files_to_process.append(video_data)
 
     if not files_to_process:
@@ -302,7 +317,9 @@ def main():
             if not vtt_filepath.is_file():
                 tqdm.write(f"警告：找不到對應的本地字幕檔 '{vtt_filepath.name}'。跳過。")
                 processing_log.append({
-                    'date': video_date, 'title': clean_title, 'status': '無字幕'
+                    'date': video_date,
+                    'title': clean_title,
+                    'status': '無字幕'
                 })
                 continue
 
@@ -312,14 +329,18 @@ def main():
             except IOError as e:
                 tqdm.write(f"錯誤：讀取字幕檔失敗 '{vtt_filepath.name}': {e}")
                 processing_log.append({
-                    'date': video_date, 'title': clean_title, 'status': '其他問題'
+                    'date': video_date,
+                    'title': clean_title,
+                    'status': '其他問題'
                 })
                 continue
 
             if not subtitle_text:
                 tqdm.write(f"警告：'{clean_title}' 的字幕內容為空。跳過。")
                 processing_log.append({
-                    'date': video_date, 'title': clean_title, 'status': '無字幕'
+                    'date': video_date,
+                    'title': clean_title,
+                    'status': '無字幕'
                 })
                 continue
 
@@ -328,7 +349,9 @@ def main():
             if not success:
                 tqdm.write(summary)  # 輸出錯誤訊息
                 processing_log.append({
-                    'date': video_date, 'title': clean_title, 'status': 'AI處理失敗'
+                    'date': video_date,
+                    'title': clean_title,
+                    'status': 'AI處理失敗'
                 })
                 continue
 
@@ -343,7 +366,9 @@ def main():
             # 強制將緩衝區的內容寫入磁碟，確保即時更新
             f_out.flush()
             processing_log.append({
-                'date': video_date, 'title': clean_title, 'status': '已總結'
+                'date': video_date,
+                'title': clean_title,
+                'status': '已總結'
             })
 
     print(f"\n處理完成！共處理 {len(files_to_process)} 個新檔案。")
