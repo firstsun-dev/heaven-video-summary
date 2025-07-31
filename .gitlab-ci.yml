@@ -1,0 +1,161 @@
+# GitLab CI/CD Pipeline Configuration
+# 這個檔案定義了自動化工作流程，分為三個階段：
+# 1. fetch: 下載最新的影片 metadata 和字幕。
+# 2. summarize: 根據新下載的檔案產生摘要。
+# 3. commit: 將更新後的檔案（摘要和下載紀錄）推送回 GitLab 倉庫。
+
+# --- 工作流程控制 ---
+# 這個設定讓 pipeline 只在以下情況執行：
+# 1. "schedule": 當你設定排程自動執行時。
+# 2. "web": 當你手動從 GitLab 網頁介面觸發時。
+# 這樣可以避免每次 push 都觸發 pipeline，從而防止無限迴圈。
+workflow:
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'
+    - if: '$CI_PIPELINE_SOURCE == "web"'
+
+stages:
+  - fetch
+  - summarize
+  - publish
+  - commit
+
+# --- 快取設定 ---
+# 為了加速後續的 pipeline 執行，快取 Python 的虛擬環境。
+cache:
+  key: ${CI_COMMIT_REF_SLUG}
+  paths:
+    - .venv/
+
+# --- 基礎作業樣板 ---
+# 定義一個基礎作業，讓後續的 job 可以繼承，避免重複撰寫設定。
+.base_job:
+  image: python:3.11-slim
+  before_script:
+    # 1. 安裝系統層級的依賴
+    - apt-get update && apt-get install -y --no-install-recommends jq git
+    # 2. 安裝系統級的 Python 工具 (Poetry 和其他 CLI 工具)
+    - pip install poetry yt-dlp gemini-cli
+    # 3. 設定 Poetry，讓虛擬環境建立在專案目錄中，以便快取
+    - poetry config virtualenvs.in-project true
+    # 4. 使用 Poetry 安裝專案依賴
+    - poetry install --no-root --no-interaction
+    # 注意：執行 gemini-cli 需要 GEMINI_API_KEY，請務必在 GitLab CI/CD 變數中設定。
+
+# --- 第一階段：抓取資料 ---
+fetch_data:
+  stage: fetch
+  extends: .base_job
+  script:
+    - echo "正在執行 get_playlist.sh 來抓取新資料..."
+    - chmod +x get_playlist.sh
+    - ./get_playlist.sh
+  artifacts:
+    paths:
+      - downloads/
+    expire_in: 1 hour # 產出的檔案只需要保留給下一個階段使用
+
+# --- 第二階段：產生摘要 ---
+summarize_content:
+  # 這個工作將在一個有 'shell-runner' 標籤的 GitLab Runner 上執行
+  # 它不會使用 Docker 容器
+  stage: summarize
+  tags:
+    - shell-runner # 重要：此標籤必須與你的 Shell Executor Runner 設定相符
+  needs:
+    - job: fetch_data
+      artifacts: true # 確保從 fetch_data 取得產出的檔案
+  before_script:
+    # 以下指令將在 Runner 的主機上執行
+    - echo "檢查本地環境的依賴..."
+    - command -v poetry >/dev/null 2>&1 || { echo >&2 "錯誤：Runner 上未安裝 Poetry。"; exit 1; }
+    - command -v gemini >/dev/null 2>&1 || { echo >&2 "錯誤：Runner 上未安裝 gemini-cli。"; exit 1; }
+    - echo "使用 Poetry 安裝 Python 依賴..."
+    - poetry install
+  script:
+    # 從 GitLab CI/CD 變數建立 .env 檔案，讓 Python 腳本可以讀取
+    - echo "正在從 CI/CD 變數建立 .env 檔案..."
+    - echo "DOWNLOADS_DIR=${CI_PROJECT_DIR}/downloads" > .env
+    - echo "SUMMARY_FILE=${CI_PROJECT_DIR}/影片重點摘要.md" >> .env
+
+    - echo "正在執行 summarize.py 來產生摘要..."
+    - poetry run summarize
+  artifacts:
+    paths:
+      # 將 downloaded.txt 和摘要檔案傳遞給後續階段
+      - downloads/downloaded.txt
+      - 影片重點摘要.md
+    expire_in: 1 hour
+
+# --- 第三階段：發佈到 Anytype ---
+publish_to_anytype:
+  stage: publish
+  allow_failure: true # 不論成功或失敗，都繼續執行後續 stage
+  extends: .base_job
+  needs:
+    - job: summarize_content
+      artifacts: true
+  script:
+    # 從 GitLab CI/CD 變數建立 .env 檔案，讓 Python 腳本可以讀取
+    - echo "正在從 CI/CD 變數建立 .env 檔案..."
+    - echo "SUMMARY_FILE=${CI_PROJECT_DIR}/影片重點摘要.md" > .env
+    - echo "ANYTYPE_API_ENDPOINT=${ANYTYPE_API_ENDPOINT}" >> .env
+    - echo "ANYTYPE_API_KEY=${ANYTYPE_API_KEY}" >> .env
+    - echo "ANYTYPE_OBJECT_ID=${ANYTYPE_OBJECT_ID}" >> .env
+    - echo "正在執行 publish_to_anytype.py..."
+    - poetry run publish-anytype
+
+# --- 第三階段：發佈到 GitLab Wiki ---
+publish_to_wiki:
+  stage: publish
+  allow_failure: true # 不論成功或失敗，都繼續執行後續 stage
+  image: alpine:latest
+  needs:
+    - job: summarize_content
+      artifacts: true
+  script:
+    - apk add --no-cache git
+    - git config --global user.name "${GITLAB_USER_NAME}"
+    - git config --global user.email "${GITLAB_USER_EMAIL}"
+    - WIKI_URL="https://oauth2:${GL_TOKEN}@${CI_SERVER_HOST}/${CI_PROJECT_PATH}.wiki.git"
+    - git clone "${WIKI_URL}" wiki-repo
+    - cd wiki-repo
+    - cp ../影片重點摘要.md ./home.md
+    - |
+      if [ -z "$(git status --porcelain)" ]; then
+        echo "Wiki 內容無變更，無需提交。"
+      else
+        echo "偵測到 Wiki 內容更新，正在提交..."
+        git add home.md
+        git commit -m "ci: 自動更新影片摘要" -m "[skip ci]"
+        git push origin master
+        echo "Wiki 已成功更新。"
+      fi
+
+# --- 第四階段：提交變更 ---
+# 這個工作只提交下載紀錄檔
+commit_changes:
+  stage: commit
+  image: alpine:latest # 使用輕量的 alpine 映像檔
+  before_script:
+    - apk add --no-cache git
+    - git config --global user.name "${GITLAB_USER_NAME}"
+    - git config --global user.email "${GITLAB_USER_EMAIL}"
+    - git remote set-url origin "https://oauth2:${GL_TOKEN}@${CI_SERVER_HOST}/${CI_PROJECT_PATH}.git"
+  script:
+    - echo "正在檢查是否有檔案變更..."
+    - git checkout ${CI_DEFAULT_BRANCH}
+    - |
+      if [ -z "$(git status --porcelain)" ]; then
+        echo "沒有偵測到變更，無需提交。"
+      else
+        echo "偵測到下載紀錄檔更新，正在提交變更..."
+        git add downloads/downloaded.txt
+        git commit -m "ci: 自動更新下載紀錄檔" -m "[skip ci]"
+        git push origin HEAD:${CI_DEFAULT_BRANCH}
+        echo "變更已成功推送至倉庫。"
+      fi
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+  dependencies:
+    - summarize_content # 確保在 summarize_content 成功後才執行
