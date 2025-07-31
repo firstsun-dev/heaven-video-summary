@@ -75,6 +75,7 @@ summarize_content:
   before_script:
     # Add user's local bin to PATH to ensure scripts like 'gemini' are found
     - export PATH="$HOME/.local/bin:$PATH"
+    - curl -sSL https://install.python-poetry.org | python3 -
     # 以下指令將在 Runner 的主機上執行
     - echo "檢查本地環境的依賴..."
     - command -v poetry >/dev/null 2>&1 || { echo >&2 "錯誤：Runner 上未安裝 Poetry。"; exit 1; }
@@ -82,7 +83,7 @@ summarize_content:
     - echo "使用 Poetry 安裝 Python 依賴..."
     # 設定 Poetry，讓虛擬環境建立在專案目錄中，以便快取
     - poetry config virtualenvs.in-project true
-    # - poetry install --no-root --no-interaction
+    - poetry install --no-root --no-interaction
   script:
     # 從 GitLab CI/CD 變數建立 .env 檔案，讓 Python 腳本可以讀取
     - echo "正在從 CI/CD 變數建立 .env 檔案..."
@@ -93,9 +94,10 @@ summarize_content:
     - ./summarize.py
   artifacts:
     paths:
-      # 將 downloaded.txt 和摘要檔案傳遞給後續階段
+      # 將 downloaded.txt、摘要檔案和狀態報告傳遞給後續階段
       - downloads/downloaded.txt
       - 影片重點摘要.md
+      - status.md
     expire_in: 1 hour
 
 # --- 第三階段：發佈到 Anytype ---
@@ -144,28 +146,29 @@ publish_to_wiki:
       fi
 
 # --- 第四階段：提交變更 ---
-# 這個工作只提交下載紀錄檔
+# 這個工作會將所有自動產生的檔案（摘要、狀態報告、下載紀錄）提交回倉庫。
 commit_changes:
   stage: commit
   needs:
-    - job: fetch_data
+    - job: summarize_content # 從 summarize_content 取得所有需要 commit 的檔案
       artifacts: true
   image: alpine:latest # 使用輕量的 alpine 映像檔
   before_script:
     - apk add --no-cache git
     - git config --global user.name "${GITLAB_USER_NAME}"
     - git config --global user.email "${GITLAB_USER_EMAIL}"
-    - git remote set-url origin "https://oauth2:${GL_TOKEN}@${CI_SERVER_HOST}/${CI_PROJECT_PATH}.git"
+    - git remote set-url origin "https://oauth2:${GL_TOKEN}@${CI_SERVER_HOST}/${CI_PROJECT_PATH}.git" # 使用 Token 設定遠端倉庫 URL
   script:
     - echo "正在檢查是否有檔案變更..."
     - git checkout ${CI_DEFAULT_BRANCH}
     - |
-      if [ -z "$(git status --porcelain)" ]; then
+      # 檢查是否有任何變更 (包括新增、修改、刪除的檔案)
+      if [ -z "$(git status --porcelain)" ]; then # --porcelain 讓輸出結果易於腳本判斷
         echo "沒有偵測到變更，無需提交。"
       else
-        echo "偵測到下載紀錄檔更新，正在提交變更..."
-        git add downloads/downloaded.txt
-        git commit -m "ci: 自動更新下載紀錄檔" -m "[skip ci]"
+        echo "偵測到檔案更新，正在提交變更..."
+        git add downloads/downloaded.txt 影片重點摘要.md status.md
+        git commit -m "ci: 自動更新摘要與處理紀錄" -m "[skip ci]"
         git push origin HEAD:${CI_DEFAULT_BRANCH}
         echo "變更已成功推送至倉庫。"
       fi

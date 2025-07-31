@@ -43,6 +43,7 @@ echo "---"
 # 使用影片 ID 作為臨時檔名進行下載，這最為可靠
 yt_dlp_args=(
     "--download-archive" "$ARCHIVE_FILE"
+    "--force-write-archive" # 強制寫入下載記錄檔，避免因為已存在的影片而跳過
     "--ignore-errors" # 當處理播放清單時，遇到單一影片錯誤（如下載不到字幕）時不要中斷
     "--skip-download"
     "--write-info-json"

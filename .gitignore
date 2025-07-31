@@ -33,12 +33,6 @@ dist/
 # Local environment variables file (contains sensitive keys)
 .env
 
-# # The main summary file, which is published to external services (Wiki/Anytype)
-# 影片重點摘要.md
-
-# # The status report file, regenerated on each run
-# status.md
-
 # Downloaded content. Ignore the entire directory, but keep the archive file.
-downloads/
+downloads/*
 !downloads/downloaded.txt
