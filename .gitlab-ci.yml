@@ -93,7 +93,8 @@ summarize_content:
     - echo "SUMMARY_FILE=${CI_PROJECT_DIR}/影片重點摘要.md" >> .env
 
     - echo "正在執行 summarize.py 來產生摘要..."
-    - poetry run summarize.py
+    # 使用 poetry run 呼叫在 pyproject.toml 中定義的 'summarize' 腳本
+    - poetry run summarize
   artifacts:
     paths:
       # 將 downloaded.txt、摘要檔案和狀態報告傳遞給後續階段
