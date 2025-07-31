@@ -1,12 +1,6 @@
 #!/bin/bash
 
-# 檢查 yt-dlp 和 jq 是否已安裝
-if ! command -v yt-dlp &> /dev/null; then
-    echo "錯誤：yt-dlp 未安裝。請先安裝 yt-dlp。" >&2
-    echo "安裝說明：https://github.com/yt-dlp/yt-dlp#installation" >&2
-    exit 1
-fi
-
+# 檢查 jq 是否已安裝 (yt-dlp 將由 Poetry 管理)
 if ! command -v jq &> /dev/null; then
     echo "錯誤：jq 未安裝。請先安裝 jq。" >&2
     echo "安裝說明：https://stedolan.github.io/jq/download/" >&2
