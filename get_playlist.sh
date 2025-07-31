@@ -1,9 +1,5 @@
 #!/bin/bash
 
-# -e: Exit immediately if a command exits with a non-zero status.
-# -u: Treat unset variables as an error when substituting.
-set -eu
-
 # 檢查 yt-dlp 和 jq 是否已安裝
 if ! command -v yt-dlp &> /dev/null; then
     echo "錯誤：yt-dlp 未安裝。請先安裝 yt-dlp。" >&2
@@ -47,6 +43,7 @@ echo "---"
 # 使用影片 ID 作為臨時檔名進行下載，這最為可靠
 yt_dlp_args=(
     "--download-archive" "$ARCHIVE_FILE"
+    "--ignore-errors" # 當處理播放清單時，遇到單一影片錯誤（如下載不到字幕）時不要中斷
     "--skip-download"
     "--write-info-json"
     "--write-subs"
@@ -64,14 +61,6 @@ fi
 # 加上播放清單 URL 並執行指令
 yt_dlp_args+=("$PLAYLIST_URL")
 yt-dlp "${yt_dlp_args[@]}"
-
-# 檢查 yt-dlp 是否成功執行
-yt_dlp_exit_code=$?
-if [ $yt_dlp_exit_code -ne 0 ]; then
-    echo "---" >&2
-    echo "錯誤：yt-dlp 下載階段失敗，程序中止。" >&2
-    exit 1
-fi
 
 echo "---"
 echo "步驟 2/2: 根據 metadata 重新命名檔案..."
@@ -139,5 +128,3 @@ rm -rf "$TMP_DIR"
 
 echo "---"
 echo "所有任務完成！"
-
-exit 0

@@ -141,6 +141,9 @@ publish_to_wiki:
 # 這個工作只提交下載紀錄檔
 commit_changes:
   stage: commit
+  needs:
+    - job: fetch_data
+      artifacts: true
   image: alpine:latest # 使用輕量的 alpine 映像檔
   before_script:
     - apk add --no-cache git
@@ -162,5 +165,3 @@ commit_changes:
       fi
   rules:
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
-  dependencies:
-    - summarize_content # 確保在 summarize_content 成功後才執行
