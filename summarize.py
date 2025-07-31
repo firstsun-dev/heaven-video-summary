@@ -200,6 +200,14 @@ def write_status_report(processing_log: list):
     # 根據日期排序日誌
     sorted_log = sorted(processing_log, key=lambda x: x['date'])
 
+    status_icons = {
+        '已存在': '🗂️',
+        '已總結': '✨',
+        '無字幕': '🔇',
+        '其他問題': '❌',
+        'AI處理失敗': '🤖'
+    }
+
     try:
         with open(STATUS_FILE, 'w', encoding='utf-8') as f:
             f.write("# 影片處理狀態報告\n\n")
@@ -329,7 +337,7 @@ def main():
             markdown_entry = f"\n## {entry_index}. {clean_title}｜{video_date}\n\n"
             if video_url:
                 markdown_entry += f"[影片連結]({video_url})\n\n"
-            markdown_entry += f"{summary}\n\n---\n"
+            markdown_entry += f"{summary}\n\n"
 
             f_out.write(markdown_entry)
             # 強制將緩衝區的內容寫入磁碟，確保即時更新
