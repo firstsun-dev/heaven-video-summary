@@ -39,7 +39,7 @@ cache:
   before_script:
 
     # 1. 安裝系統層級的依賴
-    - apt-get update && apt-get install -y --no-install-recommends jq git
+    - apt-get update && apt-get install -y --no-install-recommends jq git curl
     # 2. 安裝系統級的 Python 工具 (Poetry 和其他 CLI 工具)
     - export PATH="$HOME/.local/bin:$PATH"
     - curl -sSL https://install.python-poetry.org | python3 -
