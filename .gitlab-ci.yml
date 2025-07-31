@@ -66,7 +66,8 @@ summarize_content:
   # 它不會使用 Docker 容器
   stage: summarize
   tags:
-    - shell # 重要：此標籤必須與你的 Shell Executor Runner 設定相符
+    - shell-runner
+    - heavenweb
   needs:
     - job: fetch_data
       artifacts: true # 確保從 fetch_data 取得產出的檔案
