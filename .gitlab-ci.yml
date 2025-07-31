@@ -56,7 +56,8 @@ fetch_data:
   script:
     - echo "正在執行 get_playlist.sh 來抓取新資料..."
     - chmod +x get_playlist.sh
-    - ./get_playlist.sh
+    # 使用 poetry run 來執行腳本，確保 yt-dlp 等工具能被找到
+    - poetry run ./get_playlist.sh
   artifacts:
     paths:
       - downloads/
