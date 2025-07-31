@@ -139,3 +139,5 @@ rm -rf "$TMP_DIR"
 
 echo "---"
 echo "所有任務完成！"
+
+exit 0
