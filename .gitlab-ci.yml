@@ -90,7 +90,7 @@ summarize_content:
     - echo "SUMMARY_FILE=${CI_PROJECT_DIR}/影片重點摘要.md" >> .env
 
     - echo "正在執行 summarize.py 來產生摘要..."
-    - poetry run summarize
+    - ./summarize.py
   artifacts:
     paths:
       # 將 downloaded.txt 和摘要檔案傳遞給後續階段
