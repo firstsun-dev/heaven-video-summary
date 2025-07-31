@@ -76,7 +76,7 @@ summarize_content:
   before_script:
     # Add user's local bin to PATH to ensure scripts like 'gemini' are found
     - export PATH="$HOME/.local/bin:$PATH"
-    - curl -sSL https://install.python-poetry.org | python3 -
+    - curl -sSL https://install.python-poetry.org | python3.11 -
     # 以下指令將在 Runner 的主機上執行
     - echo "檢查本地環境的依賴..."
     - command -v poetry >/dev/null 2>&1 || { echo >&2 "錯誤：Runner 上未安裝 Poetry。"; exit 1; }
