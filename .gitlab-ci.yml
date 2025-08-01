@@ -91,10 +91,9 @@ summarize_content:
     - echo "正在從 CI/CD 變數建立 .env 檔案..."
     - echo "DOWNLOADS_DIR=${CI_PROJECT_DIR}/downloads" > .env
     - echo "SUMMARY_FILE=${CI_PROJECT_DIR}/影片重點摘要.md" >> .env
-    - source .venv/bin/activate # 啟動 Poetry 的虛擬環境
     - echo "正在執行 summarize.py 來產生摘要..."
-    # 使用 poetry run 呼叫在 pyproject.toml 中定義的 'summarize' 腳本
-    - python summarize.py
+    # 使用 poetry run 呼叫在 pyproject.toml 中定義的 'summarize' 腳本，這是標準做法
+    - poetry run summarize
   artifacts:
     paths:
       # 將 downloaded.txt、摘要檔案和狀態報告傳遞給後續階段
@@ -126,7 +125,8 @@ publish_to_wiki:
         echo "偵測到 Wiki 內容更新，正在提交..."
         git add home.md
         git commit -m "ci: 自動更新影片摘要" -m "[skip ci]"
-        git push origin master
+        # 使用 HEAD 推送當前分支，使其與遠端分支名稱無關 (master vs main)
+        git push origin HEAD
         echo "Wiki 已成功更新。"
       fi
 
