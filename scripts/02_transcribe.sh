@@ -72,7 +72,7 @@ for video_dir in "$ROOT_DIR/$TEMP_DIR"/*/; do
 import mlx_whisper
 import sys
 
-result = mlx_whisper.transcribe('$audio_file', path_or_hf_repo='$WHISPER_MODEL', language='zh', verbose=True)
+result = mlx_whisper.transcribe('$audio_file', path_or_hf_repo='$WHISPER_MODEL', language='zh', initial_prompt='請用繁體中文回答', verbose=True)
 
 with open('$output_txt', 'w', encoding='utf-8') as f:
     for segment in result['segments']:
