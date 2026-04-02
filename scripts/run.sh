@@ -5,7 +5,7 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 # Pass through arguments (e.g. --rebuild-all) to 01_fetch.sh
-FETCH_ARGS="${*}"
+FETCH_ARGS="${*:-}"
 
 echo "🚀 YouTube Dharma Talk Pipeline"
 echo "================================"
