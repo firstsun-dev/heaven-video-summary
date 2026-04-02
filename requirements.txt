@@ -1,0 +1,5 @@
+# YouTube Dharma Talk Pipeline Dependencies
+# Install with: pip install -r requirements.txt
+
+# Audio transcription (Apple Silicon optimized)
+mlx-whisper>=0.2.0

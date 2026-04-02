@@ -13,7 +13,7 @@ fi
 TEMP_DIR="${TEMP_DIR:-temp}"
 WHISPER_MODEL="${WHISPER_MODEL:-large-v3}"
 WHISPER_LANGUAGE="${WHISPER_LANGUAGE:-Chinese}"
-PARALLEL_JOBS="${PARALLEL_JOBS:-4}"  # Number of parallel transcription jobs
+PARALLEL_JOBS="${PARALLEL_JOBS:-1}"  # Number of parallel transcription jobs
 
 echo "=== Stage 2: Transcription ==="
 

@@ -5,3 +5,4 @@ temp/
 *.wav
 .DS_Store
 *_Merged.md
+.venv/
