@@ -54,4 +54,4 @@ Optional fields (have defaults): `WHISPER_MODEL`, `WHISPER_LANGUAGE`, `ARCHIVE_D
 
 ## Dependencies
 
-`yt-dlp`, `whisper` (OpenAI Whisper CLI), `ffmpeg`, `python3`, `rclone`, `jq`
+`yt-dlp`, `faster-whisper` (faster-whisper CLI), `ffmpeg`, `python3`, `rclone`, `jq`

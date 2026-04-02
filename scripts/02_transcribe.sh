@@ -44,22 +44,22 @@ for video_dir in "$ROOT_DIR/$TEMP_DIR"/*/; do
         continue
     fi
 
-    # Case 2: Has audio file — run Whisper
+    # Case 2: Has audio file — run faster-whisper
     audio_file=$(ls "$video_dir"incoming.* 2>/dev/null | head -1 || true)
     if [[ -n "$audio_file" ]]; then
-        echo "🎙️  Transcribing with Whisper ($WHISPER_MODEL): $title"
-        if whisper "$audio_file" \
+        echo "🎙️  Transcribing with faster-whisper ($WHISPER_MODEL): $title"
+        if faster-whisper "$audio_file" \
             --model "$WHISPER_MODEL" \
             --language "$WHISPER_LANGUAGE" \
             --output_format txt \
             --output_dir "$video_dir/"; then
-            # Whisper names output after the input file (e.g. incoming.txt)
+            # faster-whisper names output after the input file (e.g. incoming.txt)
             whisper_output=$(ls "$video_dir"incoming*.txt 2>/dev/null | head -1 || true)
             if [[ -n "$whisper_output" ]]; then
                 mv "$whisper_output" "$video_dir/transcript.txt"
                 echo "  ✅ Transcription complete"
             else
-                echo "  ❌ Whisper produced no output: $title"
+                echo "  ❌ faster-whisper produced no output: $title"
             fi
         else
             echo "  ❌ Transcription failed: $title"
