@@ -5,11 +5,28 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 source "$ROOT_DIR/config.env"
 
+# Activate venv if present
+if [[ -f "$ROOT_DIR/.venv/bin/activate" ]]; then
+    source "$ROOT_DIR/.venv/bin/activate"
+fi
+
 TEMP_DIR="${TEMP_DIR:-temp}"
 WHISPER_MODEL="${WHISPER_MODEL:-large-v3}"
 WHISPER_LANGUAGE="${WHISPER_LANGUAGE:-Chinese}"
 
 echo "=== Stage 2: Transcription ==="
+
+# Count total videos to process
+total=0
+for video_dir in "$ROOT_DIR/$TEMP_DIR"/*/; do
+    [[ -d "$video_dir" ]] || continue
+    [[ ! -f "$video_dir/meta.json" ]] && continue
+    [[ -f "$video_dir/transcript.txt" ]] && continue
+    ((total++))
+done
+
+echo "📊 Found $total video(s) to transcribe"
+current=0
 
 for video_dir in "$ROOT_DIR/$TEMP_DIR"/*/; do
     [[ -d "$video_dir" ]] || continue
@@ -27,7 +44,8 @@ for video_dir in "$ROOT_DIR/$TEMP_DIR"/*/; do
     # Case 1: Has subtitle file — convert to plain text
     subtitle_file=$(ls "$video_dir"subtitle.* 2>/dev/null | head -1 || true)
     if [[ -n "$subtitle_file" ]]; then
-        echo "📝 Converting subtitle: $title"
+        ((current++))
+        echo "[$current/$total] 📝 Converting subtitle: $title"
         # Strip VTT/SRT timing lines, sequence numbers, tags, blank lines; deduplicate adjacent identical lines
         sed -E \
             -e '/^WEBVTT/d' \
@@ -44,19 +62,25 @@ for video_dir in "$ROOT_DIR/$TEMP_DIR"/*/; do
         continue
     fi
 
-    # Case 2: Has audio file — run faster-whisper
+    # Case 2: Has audio file — run faster-whisper via Python
     audio_file=$(ls "$video_dir"incoming.* 2>/dev/null | head -1 || true)
     if [[ -n "$audio_file" ]]; then
-        echo "🎙️  Transcribing with faster-whisper ($WHISPER_MODEL): $title"
-        if faster-whisper "$audio_file" \
-            --model "$WHISPER_MODEL" \
-            --language "$WHISPER_LANGUAGE" \
-            --output_format txt \
-            --output_dir "$video_dir/"; then
-            # faster-whisper names output after the input file (e.g. incoming.txt)
-            whisper_output=$(ls "$video_dir"incoming*.txt 2>/dev/null | head -1 || true)
-            if [[ -n "$whisper_output" ]]; then
-                mv "$whisper_output" "$video_dir/transcript.txt"
+        ((current++))
+        echo "[$current/$total] 🎙️  Transcribing with faster-whisper ($WHISPER_MODEL): $title"
+        output_txt="$video_dir/transcript.txt"
+        if python3 -c "
+from faster_whisper import WhisperModel
+import sys
+
+model = WhisperModel('$WHISPER_MODEL', device='auto', compute_type='auto')
+segments, info = model.transcribe('$audio_file', language='zh')
+
+with open('$output_txt', 'w', encoding='utf-8') as f:
+    for segment in segments:
+        f.write(segment.text.strip() + '\n')
+print('Transcription complete', file=sys.stderr)
+" 2>&1; then
+            if [[ -f "$output_txt" ]]; then
                 echo "  ✅ Transcription complete"
             else
                 echo "  ❌ faster-whisper produced no output: $title"

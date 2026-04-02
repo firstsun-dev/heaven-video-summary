@@ -5,7 +5,13 @@ import json
 import os
 import re
 import shutil
+import sys
 from pathlib import Path
+
+# Ensure we're using the venv if present
+venv_python = Path(__file__).parent.parent / ".venv" / "bin" / "python3"
+if venv_python.exists() and sys.executable != str(venv_python):
+    os.execv(str(venv_python), [str(venv_python)] + sys.argv)
 
 
 def _load_config(root: Path) -> dict:

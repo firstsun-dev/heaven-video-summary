@@ -54,4 +54,13 @@ Optional fields (have defaults): `WHISPER_MODEL`, `WHISPER_LANGUAGE`, `ARCHIVE_D
 
 ## Dependencies
 
-`yt-dlp`, `faster-whisper` (faster-whisper CLI), `ffmpeg`, `python3`, `rclone`, `jq`
+`yt-dlp`, `faster-whisper` (Python package), `ffmpeg`, `python3`, `rclone`, `jq`
+
+**Python setup:**
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install faster-whisper
+```
+
+Scripts automatically activate `.venv` if present.
