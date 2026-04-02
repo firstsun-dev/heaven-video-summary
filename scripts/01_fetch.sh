@@ -79,20 +79,15 @@ while IFS=$'\t' read -r video_id title upload_date duration channel; do
         fi
         echo "  ✅ Audio downloaded"
     else
-        # Try downloading Chinese subtitles first (zh-Hant preferred, then zh-Hans, zh)
-        for lang in zh-Hant zh-Hans zh; do
-            if yt-dlp --write-auto-sub --sub-lang "$lang" --skip-download \
-                -o "$ROOT_DIR/$TEMP_DIR/$video_id/subtitle.%(ext)s" \
-                "$url" 2>/dev/null \
-               && ls "$ROOT_DIR/$TEMP_DIR/$video_id"/subtitle.* 1>/dev/null 2>&1; then
-                source="subtitle"
-                echo "  ✅ Subtitle downloaded ($lang)"
-                break
-            fi
-        done
-
-        # No subtitle — download audio for Whisper
-        if [[ "$source" == "audio" ]]; then
+        # Try downloading Chinese subtitles (zh-Hant preferred, then zh-TW, zh)
+        if yt-dlp --write-subs --sub-langs "zh-Hant,zh-TW,zh" --skip-download \
+            -o "$ROOT_DIR/$TEMP_DIR/$video_id/subtitle.%(ext)s" \
+            "$url" 2>/dev/null \
+           && ls "$ROOT_DIR/$TEMP_DIR/$video_id"/subtitle.* 1>/dev/null 2>&1; then
+            source="subtitle"
+            echo "  ✅ Subtitle downloaded"
+        else
+            # No subtitle — download audio for Whisper
             echo "  🎵 No subtitle found, downloading audio..."
             if ! yt-dlp -x --audio-format mp3 \
                 -o "$ROOT_DIR/$TEMP_DIR/$video_id/incoming.%(ext)s" \
