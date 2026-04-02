@@ -46,6 +46,18 @@ _transcribe_video() {
         return 0
     fi
 
+    # Skip if already archived in youtube-dharma-talk
+    video_date=$(jq -r '.date_fmt' "$video_dir/meta.json" 2>/dev/null || echo "")
+    if [[ -n "$video_date" ]]; then
+        archive_dir="$ROOT_DIR/${ARCHIVE_DIR:-youtube-dharma-talk}"
+        year="${video_date:0:4}"
+        # Check if any file exists for this date (handles -2, -3 suffixes)
+        if ls "$archive_dir/$year/${video_date}"*.md 1>/dev/null 2>&1; then
+            echo "⏭️  Already archived: $title"
+            return 0
+        fi
+    fi
+
     # Case 1: Has subtitle file — convert to plain text
     subtitle_file=$(ls "$video_dir"/subtitle.* 2>/dev/null | head -1 || true)
     if [[ -n "$subtitle_file" ]]; then
