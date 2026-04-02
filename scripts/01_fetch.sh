@@ -67,17 +67,23 @@ while IFS=$'\t' read -r video_id title upload_date duration channel; do
     source="audio"  # default; updated to "subtitle" if subtitle is found
 
     if [[ "$REBUILD_ALL" == "true" ]]; then
-        # Always download audio for Whisper re-transcription
-        echo "  🎵 Downloading audio (rebuild mode)..."
-        if ! yt-dlp -x --audio-format mp3 \
-            -o "$ROOT_DIR/$TEMP_DIR/$video_id/incoming.%(ext)s" \
-            "$url"; then
-            echo "  ❌ Download failed: $title"
-            rm -rf "$ROOT_DIR/$TEMP_DIR/$video_id"
-            _mark_download_failed "$upload_date" "$title"
-            continue
+        # Check if subtitle already exists (skip audio download if it does)
+        if ls "$ROOT_DIR/$TEMP_DIR/$video_id"/subtitle.* 1>/dev/null 2>&1; then
+            source="subtitle"
+            echo "  ✅ Subtitle already exists, skipping audio download"
+        else
+            # Always download audio for Whisper re-transcription
+            echo "  🎵 Downloading audio (rebuild mode)..."
+            if ! yt-dlp -x --audio-format mp3 \
+                -o "$ROOT_DIR/$TEMP_DIR/$video_id/incoming.%(ext)s" \
+                "$url"; then
+                echo "  ❌ Download failed: $title"
+                rm -rf "$ROOT_DIR/$TEMP_DIR/$video_id"
+                _mark_download_failed "$upload_date" "$title"
+                continue
+            fi
+            echo "  ✅ Audio downloaded"
         fi
-        echo "  ✅ Audio downloaded"
     else
         # Try downloading Chinese subtitles (zh-Hant preferred, then zh-TW, zh)
         if yt-dlp --write-subs --sub-langs "zh-Hant,zh-TW,zh" --skip-download \
