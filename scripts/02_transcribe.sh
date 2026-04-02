@@ -88,7 +88,7 @@ _transcribe_video() {
 }
 
 export -f _transcribe_video
-export ROOT_DIR TEMP_DIR WHISPER_MODEL
+export ROOT_DIR TEMP_DIR WHISPER_MODEL SCRIPT_DIR
 
 # Find all video directories and process in parallel
 find "$ROOT_DIR/$TEMP_DIR" -maxdepth 1 -type d -not -name "$TEMP_DIR" | \
