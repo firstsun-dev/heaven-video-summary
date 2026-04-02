@@ -62,28 +62,27 @@ for video_dir in "$ROOT_DIR/$TEMP_DIR"/*/; do
         continue
     fi
 
-    # Case 2: Has audio file — run faster-whisper via Python
+    # Case 2: Has audio file — run mlx-whisper via Python
     audio_file=$(ls "$video_dir"incoming.* 2>/dev/null | head -1 || true)
     if [[ -n "$audio_file" ]]; then
         ((current++))
-        echo "[$current/$total] 🎙️  Transcribing with faster-whisper ($WHISPER_MODEL): $title"
+        echo "[$current/$total] 🎙️  Transcribing with mlx-whisper ($WHISPER_MODEL): $title"
         output_txt="$video_dir/transcript.txt"
         if python3 -c "
-from faster_whisper import WhisperModel
+import mlx_whisper
 import sys
 
-model = WhisperModel('$WHISPER_MODEL', device='auto', compute_type='auto')
-segments, info = model.transcribe('$audio_file', language='zh')
+result = mlx_whisper.transcribe('$audio_file', path_or_hf_repo='$WHISPER_MODEL', language='zh', verbose=True)
 
 with open('$output_txt', 'w', encoding='utf-8') as f:
-    for segment in segments:
-        f.write(segment.text.strip() + '\n')
+    for segment in result['segments']:
+        f.write(segment['text'].strip() + '\n')
 print('Transcription complete', file=sys.stderr)
 " 2>&1; then
             if [[ -f "$output_txt" ]]; then
                 echo "  ✅ Transcription complete"
             else
-                echo "  ❌ faster-whisper produced no output: $title"
+                echo "  ❌ mlx-whisper produced no output: $title"
             fi
         else
             echo "  ❌ Transcription failed: $title"

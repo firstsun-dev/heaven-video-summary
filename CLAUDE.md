@@ -54,13 +54,15 @@ Optional fields (have defaults): `WHISPER_MODEL`, `WHISPER_LANGUAGE`, `ARCHIVE_D
 
 ## Dependencies
 
-`yt-dlp`, `faster-whisper` (Python package), `ffmpeg`, `python3`, `rclone`, `jq`
+`yt-dlp`, `mlx-whisper` (Python package), `ffmpeg`, `python3`, `rclone`, `jq`
 
 **Python setup:**
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
-pip install faster-whisper
+pip install mlx-whisper
 ```
 
 Scripts automatically activate `.venv` if present.
+
+**Note:** mlx-whisper requires Apple Silicon (M1/M2/M3/M4). For Intel Macs or other platforms, use `faster-whisper` instead.
