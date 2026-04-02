@@ -61,9 +61,52 @@ while IFS=$'\t' read -r video_id title upload_date duration channel; do
         fi
     fi
 
-    # Write meta.json
     # Reformat upload_date from YYYYMMDD to YYYY-MM-DD
     date_fmt="${upload_date:0:4}-${upload_date:4:2}-${upload_date:6:2}"
+
+    source="audio"  # default; updated to "subtitle" if subtitle is found
+
+    if [[ "$REBUILD_ALL" == "true" ]]; then
+        # Always download audio for Whisper re-transcription
+        echo "  🎵 Downloading audio (rebuild mode)..."
+        if ! yt-dlp -x --audio-format mp3 \
+            -o "$ROOT_DIR/$TEMP_DIR/$video_id/incoming.%(ext)s" \
+            "$url"; then
+            echo "  ❌ Download failed: $title"
+            rm -rf "$ROOT_DIR/$TEMP_DIR/$video_id"
+            _mark_download_failed "$upload_date" "$title"
+            continue
+        fi
+        echo "  ✅ Audio downloaded"
+    else
+        # Try downloading Chinese subtitles first (zh-Hant preferred, then zh-Hans, zh)
+        for lang in zh-Hant zh-Hans zh; do
+            if yt-dlp --write-auto-sub --sub-lang "$lang" --skip-download \
+                -o "$ROOT_DIR/$TEMP_DIR/$video_id/subtitle.%(ext)s" \
+                "$url" 2>/dev/null \
+               && ls "$ROOT_DIR/$TEMP_DIR/$video_id"/subtitle.* 1>/dev/null 2>&1; then
+                source="subtitle"
+                echo "  ✅ Subtitle downloaded ($lang)"
+                break
+            fi
+        done
+
+        # No subtitle — download audio for Whisper
+        if [[ "$source" == "audio" ]]; then
+            echo "  🎵 No subtitle found, downloading audio..."
+            if ! yt-dlp -x --audio-format mp3 \
+                -o "$ROOT_DIR/$TEMP_DIR/$video_id/incoming.%(ext)s" \
+                "$url"; then
+                echo "  ❌ Download failed: $title"
+                rm -rf "$ROOT_DIR/$TEMP_DIR/$video_id"
+                _mark_download_failed "$upload_date" "$title"
+                continue
+            fi
+            echo "  ✅ Audio downloaded"
+        fi
+    fi
+
+    # Write meta.json after download so source field is accurate
     jq -n \
         --arg title "$title" \
         --arg date "$upload_date" \
@@ -71,52 +114,9 @@ while IFS=$'\t' read -r video_id title upload_date duration channel; do
         --arg url "$url" \
         --arg channel "$channel" \
         --arg duration "$duration" \
-        '{title: $title, date: $date, date_fmt: $date_fmt, url: $url, channel: $channel, duration: $duration}' \
+        --arg source "$source" \
+        '{title:$title, date:$date, date_fmt:$date_fmt, url:$url, channel:$channel, duration:$duration, source:$source}' \
         > "$ROOT_DIR/$TEMP_DIR/$video_id/meta.json"
-
-    if [[ "$REBUILD_ALL" == "true" ]]; then
-        # Always download audio for Whisper re-transcription
-        echo "  🎵 Downloading audio (rebuild mode)..."
-        if yt-dlp -x --audio-format mp3 \
-            -o "$ROOT_DIR/$TEMP_DIR/$video_id/incoming.%(ext)s" \
-            "$url"; then
-            echo "  ✅ Audio downloaded"
-        else
-            echo "  ❌ Download failed: $title"
-            rm -rf "$ROOT_DIR/$TEMP_DIR/$video_id"
-            _mark_download_failed "$upload_date" "$title"
-        fi
-        continue
-    fi
-
-    # Try downloading Chinese subtitles first (zh-Hant preferred, then zh-Hans, zh)
-    subtitle_downloaded=false
-    for lang in zh-Hant zh-Hans zh; do
-        if yt-dlp --write-auto-sub --sub-lang "$lang" --skip-download \
-            -o "$ROOT_DIR/$TEMP_DIR/$video_id/subtitle.%(ext)s" \
-            "$url" 2>/dev/null; then
-            if ls "$ROOT_DIR/$TEMP_DIR/$video_id"/subtitle.* 1>/dev/null 2>&1; then
-                subtitle_downloaded=true
-                echo "  ✅ Subtitle downloaded ($lang)"
-                break
-            fi
-        fi
-    done
-
-    # If no subtitle found, download audio for Whisper
-    if [[ "$subtitle_downloaded" == "false" ]]; then
-        echo "  🎵 No subtitle found, downloading audio..."
-        if yt-dlp -x --audio-format mp3 \
-            -o "$ROOT_DIR/$TEMP_DIR/$video_id/incoming.%(ext)s" \
-            "$url"; then
-            echo "  ✅ Audio downloaded"
-        else
-            echo "  ❌ Download failed: $title"
-            rm -rf "$ROOT_DIR/$TEMP_DIR/$video_id"
-            _mark_download_failed "$upload_date" "$title"
-            continue
-        fi
-    fi
 
 done < "$ROOT_DIR/$TEMP_DIR/playlist.tsv"
 
