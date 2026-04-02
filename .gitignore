@@ -1,38 +1,7 @@
-# --- Python Virtual Environments ---
-# Poetry, venv, etc.
-.venv/
-venv/
-env/
-
-# --- Python cache and compiled files ---
-__pycache__/
-*.py[cod]
-*$py.class
-*.so
-
-# --- Distribution / packaging ---
-.Python
-build/
-dist/
-*.egg-info/
-.eggs/
-
-# --- IDE / Editor specific files ---
-# Visual Studio Code
-.vscode/
-# JetBrains (PyCharm, etc.)
-.idea/
-# Sublime Text
-*.sublime-project
-*.sublime-workspace
-
-# --- macOS specific files ---
+temp/
+*.mp3
+*.vtt
+*.srt
+*.wav
 .DS_Store
-
-# --- Project-specific generated files ---
-# Local environment variables file (contains sensitive keys)
-.env
-
-# Downloaded content. Ignore the entire directory, but keep the archive file.
-downloads/*
-!downloads/downloaded.txt
+*_Merged.md
