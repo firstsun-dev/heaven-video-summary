@@ -36,7 +36,7 @@ def transcribe_audio(audio_file: str, output_txt: str, model: str) -> bool:
             path_or_hf_repo=model,
             language='zh',
             initial_prompt='請用繁體中文回答',
-            verbose=False
+            verbose=True
         )
 
         # Write transcript
