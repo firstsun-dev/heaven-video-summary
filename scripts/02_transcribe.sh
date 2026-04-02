@@ -71,17 +71,7 @@ _transcribe_video() {
     if [[ -n "$audio_file" ]]; then
         echo "🎙️  Transcribing with mlx-whisper: $title"
         output_txt="$video_dir/transcript.txt"
-        if python3 -c "
-import mlx_whisper
-import sys
-
-result = mlx_whisper.transcribe('$audio_file', path_or_hf_repo='$WHISPER_MODEL', language='zh', initial_prompt='請用繁體中文回答', verbose=False)
-
-with open('$output_txt', 'w', encoding='utf-8') as f:
-    for segment in result['segments']:
-        f.write(segment['text'].strip() + '\n')
-print('Transcription complete', file=sys.stderr)
-" 2>&1; then
+        if python3 "$SCRIPT_DIR/transcribe_audio.py" "$audio_file" "$output_txt" "$WHISPER_MODEL" 2>&1; then
             if [[ -f "$output_txt" ]]; then
                 echo "  ✅ Transcription complete"
             else
