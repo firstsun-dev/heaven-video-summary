@@ -13,6 +13,7 @@ fi
 TEMP_DIR="${TEMP_DIR:-temp}"
 WHISPER_MODEL="${WHISPER_MODEL:-large-v3}"
 WHISPER_LANGUAGE="${WHISPER_LANGUAGE:-Chinese}"
+PARALLEL_JOBS="${PARALLEL_JOBS:-4}"  # Number of parallel transcription jobs
 
 echo "=== Stage 2: Transcription ==="
 
@@ -26,11 +27,15 @@ for video_dir in "$ROOT_DIR/$TEMP_DIR"/*/; do
 done
 
 echo "📊 Found $total video(s) to transcribe"
-current=0
+echo "⚙️  Using $PARALLEL_JOBS parallel jobs"
 
-for video_dir in "$ROOT_DIR/$TEMP_DIR"/*/; do
-    [[ -d "$video_dir" ]] || continue
-    [[ ! -f "$video_dir/meta.json" ]] && continue
+# Function to transcribe a single video
+_transcribe_video() {
+    local video_dir="$1"
+    local total="$2"
+
+    [[ -d "$video_dir" ]] || return 0
+    [[ ! -f "$video_dir/meta.json" ]] && return 0
 
     video_id=$(basename "$video_dir")
     title=$(jq -r '.title' "$video_dir/meta.json")
@@ -38,14 +43,13 @@ for video_dir in "$ROOT_DIR/$TEMP_DIR"/*/; do
     # Skip if already has transcript (idempotent)
     if [[ -f "$video_dir/transcript.txt" ]]; then
         echo "⏭️  Already transcribed: $title"
-        continue
+        return 0
     fi
 
     # Case 1: Has subtitle file — convert to plain text
     subtitle_file=$(ls "$video_dir"subtitle.* 2>/dev/null | head -1 || true)
     if [[ -n "$subtitle_file" ]]; then
-        ((current++))
-        echo "[$current/$total] 📝 Converting subtitle: $title"
+        echo "📝 Converting subtitle: $title"
         # Strip VTT/SRT timing lines, sequence numbers, tags, blank lines; deduplicate adjacent identical lines
         sed -E \
             -e '/^WEBVTT/d' \
@@ -59,20 +63,19 @@ for video_dir in "$ROOT_DIR/$TEMP_DIR"/*/; do
             | awk '!seen[$0]++' \
             > "$video_dir/transcript.txt"
         echo "  ✅ Subtitle converted"
-        continue
+        return 0
     fi
 
     # Case 2: Has audio file — run mlx-whisper via Python
     audio_file=$(ls "$video_dir"incoming.* 2>/dev/null | head -1 || true)
     if [[ -n "$audio_file" ]]; then
-        ((current++))
-        echo "[$current/$total] 🎙️  Transcribing with mlx-whisper ($WHISPER_MODEL): $title"
+        echo "🎙️  Transcribing with mlx-whisper: $title"
         output_txt="$video_dir/transcript.txt"
         if python3 -c "
 import mlx_whisper
 import sys
 
-result = mlx_whisper.transcribe('$audio_file', path_or_hf_repo='$WHISPER_MODEL', language='zh', initial_prompt='請用繁體中文回答', verbose=True)
+result = mlx_whisper.transcribe('$audio_file', path_or_hf_repo='$WHISPER_MODEL', language='zh', initial_prompt='請用繁體中文回答', verbose=False)
 
 with open('$output_txt', 'w', encoding='utf-8') as f:
     for segment in result['segments']:
@@ -88,10 +91,17 @@ print('Transcription complete', file=sys.stderr)
             echo "  ❌ Transcription failed: $title"
             # Leave temp dir intact for inspection; archiver will skip it
         fi
-        continue
+        return 0
     fi
 
-    echo "⚠️  No subtitle or audio found for: $title ($video_id)"
-done
+    echo "⚠️  No subtitle or audio found: $title ($video_id)"
+}
+
+export -f _transcribe_video
+export ROOT_DIR TEMP_DIR WHISPER_MODEL
+
+# Find all video directories and process in parallel
+find "$ROOT_DIR/$TEMP_DIR" -maxdepth 1 -type d -not -name "$TEMP_DIR" | \
+    xargs -P "$PARALLEL_JOBS" -I {} bash -c "_transcribe_video '{}' '$total'"
 
 echo "=== Stage 2 complete ==="
