@@ -56,9 +56,8 @@ while IFS=$'\t' read -r video_id title upload_date duration channel; do
         echo "  ℹ️  upload_date missing, fetching full metadata..."
         upload_date=$(yt-dlp --print "%(upload_date)s" "$url" 2>/dev/null || true)
         if [[ -z "$upload_date" || "$upload_date" == "NA" ]]; then
-            echo "  ❌ Could not resolve date for: $title" >&2
-            rm -rf "$ROOT_DIR/$TEMP_DIR/$video_id"
-            continue
+            echo "  ⚠️  Could not resolve date for: $title — using 00000000" >&2
+            upload_date="00000000"
         fi
     fi
 
