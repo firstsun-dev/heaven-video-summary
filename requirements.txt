@@ -1,5 +1,8 @@
 # YouTube Dharma Talk Pipeline Dependencies
 # Install with: pip install -r requirements.txt
 
+# YouTube playlist and subtitle download
+yt-dlp>=2024.7.25
+
 # Audio transcription (Apple Silicon optimized)
 mlx-whisper>=0.2.0
