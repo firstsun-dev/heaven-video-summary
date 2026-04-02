@@ -53,15 +53,12 @@ while IFS=$'\t' read -r video_id title upload_date duration channel; do
 
     # Resolve upload_date if flat-playlist returned "NA"
     if [[ "$upload_date" == "NA" || -z "$upload_date" ]]; then
-        # Try extracting YYYYMMDD from the title (e.g. "20251116 天界之舟...")
-        extracted=$(echo "$title" | grep -oE '^[0-9]{8}' || true)
-        if [[ -n "$extracted" ]]; then
-            upload_date="$extracted"
-            echo "  ℹ️  Date from title: $upload_date"
-        else
-            # Full metadata fetch as last resort
-            echo "  ℹ️  Fetching full metadata for date..."
-            upload_date=$(yt-dlp --print "%(upload_date)s" "$url" 2>/dev/null || echo "19700101")
+        echo "  ℹ️  upload_date missing, fetching full metadata..."
+        upload_date=$(yt-dlp --print "%(upload_date)s" "$url" 2>/dev/null || true)
+        if [[ -z "$upload_date" || "$upload_date" == "NA" ]]; then
+            echo "  ❌ Could not resolve date for: $title" >&2
+            rm -rf "$ROOT_DIR/$TEMP_DIR/$video_id"
+            continue
         fi
     fi
 
