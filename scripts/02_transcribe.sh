@@ -47,7 +47,7 @@ _transcribe_video() {
     fi
 
     # Case 1: Has subtitle file — convert to plain text
-    subtitle_file=$(ls "$video_dir"subtitle.* 2>/dev/null | head -1 || true)
+    subtitle_file=$(ls "$video_dir"/subtitle.* 2>/dev/null | head -1 || true)
     if [[ -n "$subtitle_file" ]]; then
         echo "📝 Converting subtitle: $title"
         # Strip VTT/SRT timing lines, sequence numbers, tags, blank lines; deduplicate adjacent identical lines
@@ -67,7 +67,7 @@ _transcribe_video() {
     fi
 
     # Case 2: Has audio file — run mlx-whisper via Python
-    audio_file=$(ls "$video_dir"incoming.* 2>/dev/null | head -1 || true)
+    audio_file=$(ls "$video_dir"/incoming.* 2>/dev/null | head -1 || true)
     if [[ -n "$audio_file" ]]; then
         echo "🎙️  Transcribing with mlx-whisper: $title"
         output_txt="$video_dir/transcript.txt"
