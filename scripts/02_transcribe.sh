@@ -17,15 +17,29 @@ WHISPER_LANGUAGE="${WHISPER_LANGUAGE:-Chinese}"
 
 echo "=== Stage 2: Transcription ==="
 
-# Count total videos (all with meta.json)
+# Scan all videos and categorize them
 total=0
+completed=0
+to_process=0
+
+echo "🔍 Scanning videos..."
 for video_dir in "$ROOT_DIR/$TEMP_DIR"/*/; do
     [[ -d "$video_dir" ]] || continue
     [[ ! -f "$video_dir/meta.json" ]] && continue
     ((total++))
+
+    if [[ -f "$video_dir/transcript.txt" ]]; then
+        ((completed++))
+    else
+        ((to_process++))
+    fi
 done
 
-echo "📊 Found $total video(s) total"
+echo "📊 Scan complete:"
+echo "   Total videos: $total"
+echo "   ✅ Already transcribed: $completed"
+echo "   ⏳ Need transcription: $to_process"
+printf "\n"
 
 current=0
 skipped=0
