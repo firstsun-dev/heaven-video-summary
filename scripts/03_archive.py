@@ -150,11 +150,20 @@ def archive_video(video_dir: Path, archive_dir: Path, status_path: Path) -> None
     if not txt_path.exists():
         return
 
+    # Archive version 1: without timestamps
     transcript = txt_path.read_text(encoding="utf-8")
     content = format_markdown(meta, transcript)
-
     dest = get_archive_path(date_str, archive_dir)
     dest.write_text(content, encoding="utf-8")
+
+    # Archive version 2: with timestamps (if available)
+    txt_timestamps_path = video_dir / "transcript-with-timestamps.txt"
+    if txt_timestamps_path.exists():
+        transcript_ts = txt_timestamps_path.read_text(encoding="utf-8")
+        content_ts = format_markdown(meta, transcript_ts)
+        # Insert "-timestamps" before .md extension
+        dest_ts = dest.parent / f"{dest.stem}-timestamps.md"
+        dest_ts.write_text(content_ts, encoding="utf-8")
 
     rel_link = f"./{archive_dir.name}/{date_str[:4]}/{dest.name}"
     update_status_row(status_path, date_key, meta["title"], "🗂️ 已存在", rel_link)
