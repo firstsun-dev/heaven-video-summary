@@ -83,7 +83,7 @@ _transcribe_video() {
             -e '/^[0-9]+$/d' \
             -e 's/<[^>]*>//g' \
             "$subtitle_file" \
-            | grep -v '^$' \
+            | grep -v '^\s*$' \
             | awk '!seen[$0]++' \
             > "$video_dir/transcript-with-timestamps.txt"
 
@@ -96,7 +96,7 @@ _transcribe_video() {
             -e '/^[0-9]{2}:[0-9]{2}/d' \
             -e 's/<[^>]*>//g' \
             "$subtitle_file" \
-            | grep -v '^$' \
+            | grep -v '^\s*$' \
             | awk '!seen[$0]++' \
             > "$video_dir/transcript.txt"
 
