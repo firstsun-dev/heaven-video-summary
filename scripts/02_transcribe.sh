@@ -119,17 +119,22 @@ _transcribe_video() {
 }
 
 # Process all videos sequentially
+# First pass: show already-transcribed videos
 for video_dir in "$ROOT_DIR/$TEMP_DIR"/*/; do
     [[ -d "$video_dir" ]] || continue
     [[ ! -f "$video_dir/meta.json" ]] && continue
+    [[ ! -f "$video_dir/transcript.txt" ]] && continue
 
-    # Skip if already has transcript
-    if [[ -f "$video_dir/transcript.txt" ]]; then
-        ((current++))
-        title=$(jq -r '.title' "$video_dir/meta.json")
-        _update_progress "$current" "$total" "$skipped" "✅ Already done" "$title" "newline"
-        continue
-    fi
+    ((current++))
+    title=$(jq -r '.title' "$video_dir/meta.json")
+    _update_progress "$current" "$total" "$skipped" "✅ Already done" "$title" "newline"
+done
+
+# Second pass: process videos needing transcription
+for video_dir in "$ROOT_DIR/$TEMP_DIR"/*/; do
+    [[ -d "$video_dir" ]] || continue
+    [[ ! -f "$video_dir/meta.json" ]] && continue
+    [[ -f "$video_dir/transcript.txt" ]] && continue
 
     _transcribe_video "$video_dir"
 done
