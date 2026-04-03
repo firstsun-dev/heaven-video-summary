@@ -70,11 +70,24 @@ _transcribe_video() {
         fi
     fi
 
-    # Case 1: Has subtitle file — convert to plain text
+    # Case 1: Has subtitle file — convert to plain text (two versions)
     subtitle_file=$(ls "$video_dir"/subtitle.* 2>/dev/null | head -1 || true)
     if [[ -n "$subtitle_file" ]]; then
         echo "📝 Converting subtitle: $title"
-        # Strip VTT/SRT timing lines, sequence numbers, tags, blank lines; deduplicate adjacent identical lines
+
+        # Version 1: With timestamps (keep timing info, remove metadata)
+        sed -E \
+            -e '/^WEBVTT/d' \
+            -e '/^Kind:/d' \
+            -e '/^Language:/d' \
+            -e '/^[0-9]+$/d' \
+            -e 's/<[^>]*>//g' \
+            "$subtitle_file" \
+            | grep -v '^$' \
+            | awk '!seen[$0]++' \
+            > "$video_dir/transcript-with-timestamps.txt"
+
+        # Version 2: Without timestamps (strip timing lines)
         sed -E \
             -e '/^WEBVTT/d' \
             -e '/^Kind:/d' \
@@ -86,7 +99,8 @@ _transcribe_video() {
             | grep -v '^$' \
             | awk '!seen[$0]++' \
             > "$video_dir/transcript.txt"
-        echo "  ✅ Subtitle converted"
+
+        echo "  ✅ Subtitle converted (2 versions)"
         _update_progress "$current" "$total" "$skipped" "📝 Converted" "$title" "newline"
         return 0
     fi
