@@ -14,6 +14,17 @@ if venv_python.exists() and sys.executable != str(venv_python):
     os.execv(str(venv_python), [str(venv_python)] + sys.argv)
 
 
+def _update_progress(current: int, total: int, skipped: int, action: str, title: str) -> None:
+    """Print progress counter on same line using carriage return."""
+    percent = (current * 100) // total if total > 0 else 0
+    print(
+        f"\r({current}/{total}) 影片 [{percent}%] | {action}: {title} | (skipped: {skipped})",
+        end="",
+        flush=True
+    )
+
+
+
 def _load_config(root: Path) -> dict:
     config = {}
     config_path = root / "config.env"
@@ -98,7 +109,6 @@ def update_status_row(
 def archive_video(video_dir: Path, archive_dir: Path, status_path: Path) -> None:
     meta_path = video_dir / "meta.json"
     if not meta_path.exists():
-        print(f"[03_archive] WARN: no meta.json in {video_dir}, skipping")
         return
 
     meta = json.loads(meta_path.read_text(encoding="utf-8"))
@@ -107,7 +117,6 @@ def archive_video(video_dir: Path, archive_dir: Path, status_path: Path) -> None
 
     txt_path = video_dir / "transcript.txt"
     if not txt_path.exists():
-        print(f"[03_archive] WARN: no transcript.txt for {meta['title']}, skipping")
         return
 
     transcript = txt_path.read_text(encoding="utf-8")
@@ -115,13 +124,11 @@ def archive_video(video_dir: Path, archive_dir: Path, status_path: Path) -> None
 
     dest = get_archive_path(date_str, archive_dir)
     dest.write_text(content, encoding="utf-8")
-    print(f"[03_archive] Archived: {meta['title']} → {dest}")
 
     rel_link = f"./{archive_dir.name}/{date_str[:4]}/{dest.name}"
     update_status_row(status_path, date_key, meta["title"], "🗂️ 已存在", rel_link)
 
     shutil.rmtree(video_dir)
-    print(f"[03_archive] Cleaned: {video_dir.name}")
 
 
 def main() -> None:
@@ -142,9 +149,28 @@ def main() -> None:
     )
     print(f"[03_archive] Processing {len(video_dirs)} video dir(s)...")
 
-    for video_dir in video_dirs:
-        archive_video(video_dir, archive_dir, status_path)
+    current = 0
+    skipped = 0
 
+    for video_dir in video_dirs:
+        current += 1
+        meta_path = video_dir / "meta.json"
+        if not meta_path.exists():
+            skipped += 1
+            _update_progress(current, len(video_dirs), skipped, "⚠️ No meta.json", video_dir.name)
+            continue
+
+        meta = json.loads(meta_path.read_text(encoding="utf-8"))
+        txt_path = video_dir / "transcript.txt"
+        if not txt_path.exists():
+            skipped += 1
+            _update_progress(current, len(video_dirs), skipped, "⚠️ No transcript", meta['title'])
+            continue
+
+        archive_video(video_dir, archive_dir, status_path)
+        _update_progress(current, len(video_dirs), skipped, "🗂️ Archived", meta['title'])
+
+    print()  # Final newline
     print("[03_archive] Done.")
 
 
