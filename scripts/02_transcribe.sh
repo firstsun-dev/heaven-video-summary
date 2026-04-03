@@ -4,24 +4,12 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 source "$ROOT_DIR/config.env"
+source "$SCRIPT_DIR/progress.sh"
 
 # Activate venv if present
 if [[ -f "$ROOT_DIR/.venv/bin/activate" ]]; then
     source "$ROOT_DIR/.venv/bin/activate"
 fi
-
-# Progress tracking (newline version for mlx-whisper output)
-_update_progress() {
-    local current="$1"
-    local total="$2"
-    local skipped="$3"
-    local action="$4"
-    local title="$5"
-
-    local percent=$((current * 100 / total))
-    printf "(%d/%d) 影片 [%d%%] | %s: %s | (skipped: %d)\n" \
-        "$current" "$total" "$percent" "$action" "$title" "$skipped"
-}
 
 TEMP_DIR="${TEMP_DIR:-temp}"
 WHISPER_MODEL="${WHISPER_MODEL:-large-v3}"
@@ -57,7 +45,7 @@ _transcribe_video() {
     # Skip if already has transcript (idempotent)
     if [[ -f "$video_dir/transcript.txt" ]]; then
         ((skipped++))
-        _update_progress "$current" "$total" "$skipped" "⏭️ Already transcribed" "$title"
+        _update_progress "$current" "$total" "$skipped" "⏭️ Already transcribed" "$title" "newline"
         return 0
     fi
 
@@ -71,7 +59,7 @@ _transcribe_video() {
             for archive_file in "$archive_dir/$year/${video_date}"*.md; do
                 if grep -q "^# $title$" "$archive_file" 2>/dev/null; then
                     ((skipped++))
-                    _update_progress "$current" "$total" "$skipped" "⏭️ Already archived" "$title"
+                    _update_progress "$current" "$total" "$skipped" "⏭️ Already archived" "$title" "newline"
                     return 0
                 fi
             done
@@ -95,7 +83,7 @@ _transcribe_video() {
             | awk '!seen[$0]++' \
             > "$video_dir/transcript.txt"
         echo "  ✅ Subtitle converted"
-        _update_progress "$current" "$total" "$skipped" "📝 Converted" "$title"
+        _update_progress "$current" "$total" "$skipped" "📝 Converted" "$title" "newline"
         return 0
     fi
 
@@ -107,23 +95,23 @@ _transcribe_video() {
         if python3 "$SCRIPT_DIR/transcribe_audio.py" "$audio_file" "$output_txt" "$WHISPER_MODEL" 2>&1; then
             if [[ -f "$output_txt" ]]; then
                 echo "  ✅ Transcription complete"
-                _update_progress "$current" "$total" "$skipped" "🎙️ Transcribed" "$title"
+                _update_progress "$current" "$total" "$skipped" "🎙️ Transcribed" "$title" "newline"
             else
                 echo "  ❌ mlx-whisper produced no output: $title"
                 ((skipped++))
-                _update_progress "$current" "$total" "$skipped" "❌ No output" "$title"
+                _update_progress "$current" "$total" "$skipped" "❌ No output" "$title" "newline"
             fi
         else
             echo "  ❌ Transcription failed: $title"
             ((skipped++))
-            _update_progress "$current" "$total" "$skipped" "❌ Failed" "$title"
+            _update_progress "$current" "$total" "$skipped" "❌ Failed" "$title" "newline"
             # Leave temp dir intact for inspection; archiver will skip it
         fi
         return 0
     fi
 
     ((skipped++))
-    _update_progress "$current" "$total" "$skipped" "⚠️ No source" "$title"
+    _update_progress "$current" "$total" "$skipped" "⚠️ No source" "$title" "newline"
 }
 
 # Process videos sequentially

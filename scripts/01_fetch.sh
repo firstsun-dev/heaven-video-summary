@@ -4,19 +4,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 source "$ROOT_DIR/config.env"
-
-# Progress tracking
-_update_progress() {
-    local current="$1"
-    local total="$2"
-    local skipped="$3"
-    local action="$4"
-    local title="$5"
-
-    local percent=$((current * 100 / total))
-    printf "\r(%d/%d) 影片 [%d%%] | %s: %s | (skipped: %d)" \
-        "$current" "$total" "$percent" "$action" "$title" "$skipped"
-}
+source "$SCRIPT_DIR/progress.sh"
 
 REBUILD_ALL=false
 if [[ "${1:-}" == "--rebuild-all" ]]; then
