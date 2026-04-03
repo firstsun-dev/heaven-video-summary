@@ -5,6 +5,19 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 source "$ROOT_DIR/config.env"
 
+# Progress tracking
+_update_progress() {
+    local current="$1"
+    local total="$2"
+    local skipped="$3"
+    local action="$4"
+    local title="$5"
+
+    local percent=$((current * 100 / total))
+    printf "\r(%d/%d) 影片 [%d%%] | %s: %s | (skipped: %d)" \
+        "$current" "$total" "$percent" "$action" "$title" "$skipped"
+}
+
 REBUILD_ALL=false
 if [[ "${1:-}" == "--rebuild-all" ]]; then
     REBUILD_ALL=true
@@ -28,12 +41,18 @@ yt-dlp --flat-playlist --print "%(id)s	%(title)s	%(upload_date)s	%(duration_stri
 TOTAL=$(wc -l < "$ROOT_DIR/$TEMP_DIR/playlist.tsv" | tr -d ' ')
 echo "📋 Found $TOTAL videos in playlist"
 
+current=0
+skipped=0
+
 while IFS=$'\t' read -r video_id title upload_date duration channel; do
     url="https://www.youtube.com/watch?v=$video_id"
 
+    ((current++))
+
     # Skip if already in temp (idempotent)
     if [[ -d "$ROOT_DIR/$TEMP_DIR/$video_id" && -f "$ROOT_DIR/$TEMP_DIR/$video_id/meta.json" ]]; then
-        echo "⏭️  Already in temp: $title"
+        ((skipped++))
+        _update_progress "$current" "$TOTAL" "$skipped" "⏭️ Already in temp" "$title"
         continue
     fi
 
@@ -42,13 +61,15 @@ while IFS=$'\t' read -r video_id title upload_date duration channel; do
         if grep -q "^| $upload_date" "$ROOT_DIR/status.md" 2>/dev/null; then
             status_line=$(grep "^| $upload_date" "$ROOT_DIR/status.md" || true)
             if echo "$status_line" | grep -q "已存在"; then
-                echo "⏭️  Already archived: $title"
+                ((skipped++))
+                _update_progress "$current" "$TOTAL" "$skipped" "⏭️ Already archived" "$title"
                 continue
             fi
         fi
     fi
 
-    echo "📥 Processing: $title ($video_id)"
+    _update_progress "$current" "$TOTAL" "$skipped" "📥 Processing" "$title"
+    echo ""
     mkdir -p "$ROOT_DIR/$TEMP_DIR/$video_id"
 
     # Resolve upload_date if flat-playlist returned "NA"
@@ -121,6 +142,7 @@ while IFS=$'\t' read -r video_id title upload_date duration channel; do
 
 done < "$ROOT_DIR/$TEMP_DIR/playlist.tsv"
 
+printf "\n"
 echo "=== Stage 1 complete ==="
 
 # Mark download failure in status.md
