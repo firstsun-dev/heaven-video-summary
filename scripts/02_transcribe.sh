@@ -10,10 +10,22 @@ if [[ -f "$ROOT_DIR/.venv/bin/activate" ]]; then
     source "$ROOT_DIR/.venv/bin/activate"
 fi
 
+# Progress tracking (newline version for mlx-whisper output)
+_update_progress() {
+    local current="$1"
+    local total="$2"
+    local skipped="$3"
+    local action="$4"
+    local title="$5"
+
+    local percent=$((current * 100 / total))
+    printf "(%d/%d) 影片 [%d%%] | %s: %s | (skipped: %d)\n" \
+        "$current" "$total" "$percent" "$action" "$title" "$skipped"
+}
+
 TEMP_DIR="${TEMP_DIR:-temp}"
 WHISPER_MODEL="${WHISPER_MODEL:-large-v3}"
 WHISPER_LANGUAGE="${WHISPER_LANGUAGE:-Chinese}"
-PARALLEL_JOBS="${PARALLEL_JOBS:-1}"  # Number of parallel transcription jobs
 
 echo "=== Stage 2: Transcription ==="
 
@@ -27,22 +39,25 @@ for video_dir in "$ROOT_DIR/$TEMP_DIR"/*/; do
 done
 
 echo "📊 Found $total video(s) to transcribe"
-echo "⚙️  Using $PARALLEL_JOBS parallel jobs"
+
+current=0
+skipped=0
 
 # Function to transcribe a single video
 _transcribe_video() {
     local video_dir="$1"
-    local total="$2"
 
     [[ -d "$video_dir" ]] || return 0
     [[ ! -f "$video_dir/meta.json" ]] && return 0
 
+    ((current++))
     video_id=$(basename "$video_dir")
     title=$(jq -r '.title' "$video_dir/meta.json")
 
     # Skip if already has transcript (idempotent)
     if [[ -f "$video_dir/transcript.txt" ]]; then
-        echo "⏭️  Already transcribed: $title"
+        ((skipped++))
+        _update_progress "$current" "$total" "$skipped" "⏭️ Already transcribed" "$title"
         return 0
     fi
 
@@ -55,7 +70,8 @@ _transcribe_video() {
         if ls "$archive_dir/$year/${video_date}"*.md 1>/dev/null 2>&1; then
             for archive_file in "$archive_dir/$year/${video_date}"*.md; do
                 if grep -q "^# $title$" "$archive_file" 2>/dev/null; then
-                    echo "⏭️  Already archived: $title"
+                    ((skipped++))
+                    _update_progress "$current" "$total" "$skipped" "⏭️ Already archived" "$title"
                     return 0
                 fi
             done
@@ -79,6 +95,7 @@ _transcribe_video() {
             | awk '!seen[$0]++' \
             > "$video_dir/transcript.txt"
         echo "  ✅ Subtitle converted"
+        _update_progress "$current" "$total" "$skipped" "📝 Converted" "$title"
         return 0
     fi
 
@@ -90,24 +107,29 @@ _transcribe_video() {
         if python3 "$SCRIPT_DIR/transcribe_audio.py" "$audio_file" "$output_txt" "$WHISPER_MODEL" 2>&1; then
             if [[ -f "$output_txt" ]]; then
                 echo "  ✅ Transcription complete"
+                _update_progress "$current" "$total" "$skipped" "🎙️ Transcribed" "$title"
             else
                 echo "  ❌ mlx-whisper produced no output: $title"
+                ((skipped++))
+                _update_progress "$current" "$total" "$skipped" "❌ No output" "$title"
             fi
         else
             echo "  ❌ Transcription failed: $title"
+            ((skipped++))
+            _update_progress "$current" "$total" "$skipped" "❌ Failed" "$title"
             # Leave temp dir intact for inspection; archiver will skip it
         fi
         return 0
     fi
 
-    echo "⚠️  No subtitle or audio found: $title ($video_id)"
+    ((skipped++))
+    _update_progress "$current" "$total" "$skipped" "⚠️ No source" "$title"
 }
 
-export -f _transcribe_video
-export ROOT_DIR TEMP_DIR WHISPER_MODEL SCRIPT_DIR
+# Process videos sequentially
+for video_dir in "$ROOT_DIR/$TEMP_DIR"/*/; do
+    _transcribe_video "$video_dir"
+done
 
-# Find all video directories and process in parallel
-find "$ROOT_DIR/$TEMP_DIR" -maxdepth 1 -type d -not -name "$TEMP_DIR" | \
-    xargs -P "$PARALLEL_JOBS" -I {} bash -c "_transcribe_video '{}' '$total'"
-
+printf "\n"
 echo "=== Stage 2 complete ==="
