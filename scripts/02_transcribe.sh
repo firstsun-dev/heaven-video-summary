@@ -17,16 +17,15 @@ WHISPER_LANGUAGE="${WHISPER_LANGUAGE:-Chinese}"
 
 echo "=== Stage 2: Transcription ==="
 
-# Count total videos to process
+# Count total videos (all with meta.json)
 total=0
 for video_dir in "$ROOT_DIR/$TEMP_DIR"/*/; do
     [[ -d "$video_dir" ]] || continue
     [[ ! -f "$video_dir/meta.json" ]] && continue
-    [[ -f "$video_dir/transcript.txt" ]] && continue
     ((total++))
 done
 
-echo "📊 Found $total video(s) to transcribe"
+echo "📊 Found $total video(s) total"
 
 current=0
 skipped=0
@@ -105,11 +104,19 @@ _transcribe_video() {
     _update_progress "$current" "$total" "$skipped" "⚠️ No source" "$title" "newline"
 }
 
-# Process videos sequentially (only those needing transcription)
+# Process all videos sequentially
 for video_dir in "$ROOT_DIR/$TEMP_DIR"/*/; do
     [[ -d "$video_dir" ]] || continue
     [[ ! -f "$video_dir/meta.json" ]] && continue
-    [[ -f "$video_dir/transcript.txt" ]] && continue
+
+    # Skip if already has transcript
+    if [[ -f "$video_dir/transcript.txt" ]]; then
+        ((current++))
+        title=$(jq -r '.title' "$video_dir/meta.json")
+        _update_progress "$current" "$total" "$skipped" "✅ Already done" "$title" "newline"
+        continue
+    fi
+
     _transcribe_video "$video_dir"
 done
 
