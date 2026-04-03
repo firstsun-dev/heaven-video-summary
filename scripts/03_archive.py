@@ -58,6 +58,34 @@ def _raw_to_iso(raw: str) -> str:
     return f"{raw[:4]}-{raw[4:6]}-{raw[6:8]}"
 
 
+def _extract_date_from_title(title: str, fallback_date: str) -> str:
+    """
+    Extract lecture date from video title.
+
+    Looks for YYYYMMDD or YYYY-MM-DD patterns in title.
+    Returns extracted date in YYYY-MM-DD format, or fallback_date if not found.
+
+    Args:
+        title: Video title to search
+        fallback_date: Date to use if extraction fails (YYYYMMDD format)
+
+    Returns:
+        Date in YYYY-MM-DD format
+    """
+    # Try to find YYYYMMDD pattern (e.g., 20220904)
+    match = re.search(r'(\d{8})', title)
+    if match:
+        date_str = match.group(1)
+        return f"{date_str[:4]}-{date_str[4:6]}-{date_str[6:8]}"
+
+    # Try to find YYYY-MM-DD pattern
+    match = re.search(r'(\d{4})-(\d{2})-(\d{2})', title)
+    if match:
+        return match.group(0)
+
+    # Fallback to publication date
+    return _raw_to_iso(fallback_date)
+
 def get_archive_path(date_str: str, archive_dir: Path) -> Path:
     """Return a free path, bumping to -2, -3 on same-day collision."""
     year = date_str[:4]
@@ -112,8 +140,11 @@ def archive_video(video_dir: Path, archive_dir: Path, status_path: Path) -> None
         return
 
     meta = json.loads(meta_path.read_text(encoding="utf-8"))
-    date_key = meta["date"]  # YYYYMMDD
-    date_str = meta.get("date_fmt") or _raw_to_iso(date_key)
+    date_key = meta["date"]  # YYYYMMDD (publication date)
+    title = meta["title"]
+
+    # Extract lecture date from title, fallback to publication date
+    date_str = _extract_date_from_title(title, date_key)
 
     txt_path = video_dir / "transcript.txt"
     if not txt_path.exists():
