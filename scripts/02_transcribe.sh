@@ -35,19 +35,10 @@ skipped=0
 _transcribe_video() {
     local video_dir="$1"
 
-    [[ -d "$video_dir" ]] || return 0
-    [[ ! -f "$video_dir/meta.json" ]] && return 0
-
-    ((current++))
     video_id=$(basename "$video_dir")
     title=$(jq -r '.title' "$video_dir/meta.json")
 
-    # Skip if already has transcript (idempotent)
-    if [[ -f "$video_dir/transcript.txt" ]]; then
-        ((skipped++))
-        _update_progress "$current" "$total" "$skipped" "⏭️ Already transcribed" "$title" "newline"
-        return 0
-    fi
+    ((current++))
 
     # Skip if already archived in youtube-dharma-talk (check by title in file content)
     video_date=$(jq -r '.date_fmt' "$video_dir/meta.json" 2>/dev/null || echo "")
@@ -114,8 +105,11 @@ _transcribe_video() {
     _update_progress "$current" "$total" "$skipped" "⚠️ No source" "$title" "newline"
 }
 
-# Process videos sequentially
+# Process videos sequentially (only those needing transcription)
 for video_dir in "$ROOT_DIR/$TEMP_DIR"/*/; do
+    [[ -d "$video_dir" ]] || continue
+    [[ ! -f "$video_dir/meta.json" ]] && continue
+    [[ -f "$video_dir/transcript.txt" ]] && continue
     _transcribe_video "$video_dir"
 done
 
