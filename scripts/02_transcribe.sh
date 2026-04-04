@@ -70,24 +70,12 @@ _transcribe_video() {
         fi
     fi
 
-    # Case 1: Has subtitle file — convert to plain text (two versions)
+    # Case 1: Has subtitle file — convert to plain text (without timestamps)
     subtitle_file=$(ls "$video_dir"/subtitle.* 2>/dev/null | head -1 || true)
     if [[ -n "$subtitle_file" ]]; then
         echo "📝 Converting subtitle: $title"
 
-        # Version 1: With timestamps (keep timing info, remove metadata)
-        sed -E \
-            -e '/^WEBVTT/d' \
-            -e '/^Kind:/d' \
-            -e '/^Language:/d' \
-            -e '/^[0-9]+$/d' \
-            -e 's/<[^>]*>//g' \
-            "$subtitle_file" \
-            | grep -v '^\s*$' \
-            | awk '!seen[$0]++' \
-            > "$video_dir/transcript-with-timestamps.txt"
-
-        # Version 2: Without timestamps (strip timing lines)
+        # Convert to plain text without timestamps
         sed -E \
             -e '/^WEBVTT/d' \
             -e '/^Kind:/d' \
@@ -100,7 +88,7 @@ _transcribe_video() {
             | awk '!seen[$0]++' \
             > "$video_dir/transcript.txt"
 
-        echo "  ✅ Subtitle converted (2 versions)"
+        echo "  ✅ Subtitle converted"
         _update_progress "$current" "$total" "$skipped" "📝 Converted" "$title" "newline"
         return 0
     fi
@@ -110,17 +98,26 @@ _transcribe_video() {
     if [[ -n "$audio_file" ]]; then
         echo "🎙️  Transcribing with mlx-whisper: $title"
         output_txt="$video_dir/transcript.txt"
+
+        start_time=$(date +%s)
         if python3 "$SCRIPT_DIR/transcribe_audio.py" "$audio_file" "$output_txt" "$WHISPER_MODEL" 2>&1; then
+            end_time=$(date +%s)
+            elapsed=$((end_time - start_time))
+            minutes=$((elapsed / 60))
+            seconds=$((elapsed % 60))
+
             if [[ -f "$output_txt" ]]; then
-                echo "  ✅ Transcription complete"
-                _update_progress "$current" "$total" "$skipped" "🎙️ Transcribed" "$title" "newline"
+                echo "  ✅ Transcription complete (${minutes}m ${seconds}s)"
+                _update_progress "$current" "$total" "$skipped" "🎙️ Transcribed (${minutes}m ${seconds}s)" "$title" "newline"
             else
                 echo "  ❌ mlx-whisper produced no output: $title"
                 ((skipped++))
                 _update_progress "$current" "$total" "$skipped" "❌ No output" "$title" "newline"
             fi
         else
-            echo "  ❌ Transcription failed: $title"
+            end_time=$(date +%s)
+            elapsed=$((end_time - start_time))
+            echo "  ❌ Transcription failed: $title (after ${elapsed}s)"
             ((skipped++))
             _update_progress "$current" "$total" "$skipped" "❌ Failed" "$title" "newline"
             # Leave temp dir intact for inspection; archiver will skip it
