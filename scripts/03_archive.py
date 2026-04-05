@@ -107,7 +107,11 @@ def get_archive_path(date_str: str, archive_dir: Path) -> Path:
 def update_status_row(
     status_path: Path, date_key: str, title: str, status: str, link: str = ""
 ) -> None:
-    """Update the matching row in status.md; append if not found; create file if missing."""
+    """Update the matching row in status.md; append if not found; create file if missing.
+
+    Matches by both date and title: same date + same title = same entry.
+    Data rows are sorted by date descending (newest first).
+    """
     if not status_path.exists():
         status_path.write_text(
             "# 影片處理狀態報告\n\n"
@@ -119,19 +123,91 @@ def update_status_row(
     lines = status_path.read_text(encoding="utf-8").splitlines(keepends=True)
     new_row = f"| {date_key} | {title} | {status} | {link} |\n"
 
-    found = False
-    new_lines = []
+    # Separate header from data rows
+    header_lines = []
+    data_lines = []
+
     for line in lines:
-        if re.match(rf"^\|\s*{re.escape(date_key)}\s*\|", line):
-            new_lines.append(new_row)
-            found = True
+        # Header is title, empty line, and separator line
+        if line.startswith("#") or line.strip() == "" or line.startswith("|:"):
+            header_lines.append(line)
+        # Header row: | 日期
+        elif "| 日期" in line:
+            header_lines.append(line)
+        # Data rows start with | and contain date
+        elif line.startswith("|"):
+            data_lines.append(line)
+
+    # Update or add the row, matching by both date and title
+    found = False
+    updated_data_lines = []
+    for line in data_lines:
+        # Extract date and title from existing row: | date | title | ... |
+        match = re.match(rf"^\|\s*(\d+)\s*\|\s*(.+?)\s*\|", line)
+        if match:
+            existing_date = match.group(1)
+            existing_title = match.group(2)
+            # Match if both date and title are the same
+            if existing_date == date_key and existing_title == title:
+                updated_data_lines.append(new_row)
+                found = True
+            else:
+                updated_data_lines.append(line)
         else:
-            new_lines.append(line)
+            updated_data_lines.append(line)
 
     if not found:
-        new_lines.append(new_row)
+        updated_data_lines.append(new_row)
 
-    status_path.write_text("".join(new_lines), encoding="utf-8")
+    # Sort data rows by date (first column) descending (newest first)
+    # Extract date from row format: | YYYYMMDD | ...
+    def extract_date(row: str) -> str:
+        match = re.match(r'^\|\s*(\d+)\s*\|', row)
+        return match.group(1) if match else "0"
+
+    updated_data_lines.sort(key=extract_date, reverse=True)
+
+    # Reconstruct file
+    status_path.write_text("".join(header_lines) + "".join(updated_data_lines), encoding="utf-8")
+
+
+def _vtt_to_markdown(vtt_path: Path) -> str:
+    """Convert VTT subtitle file to markdown with timestamps."""
+    if not vtt_path.exists():
+        return ""
+
+    vtt_content = vtt_path.read_text(encoding="utf-8")
+    lines = vtt_content.splitlines()
+
+    result = []
+    current_timestamp = ""
+
+    for line in lines:
+        line = line.rstrip()
+
+        # Skip WEBVTT header and NOTE lines
+        if line.startswith("WEBVTT") or line.startswith("NOTE"):
+            continue
+
+        # Detect timestamp lines (format: HH:MM:SS.mmm --> HH:MM:SS.mmm)
+        if " --> " in line:
+            # Extract start time (before -->)
+            start_time = line.split(" --> ")[0].strip()
+            current_timestamp = f"[{start_time}]"
+            continue
+
+        # Skip blank lines
+        if line.strip() == "":
+            continue
+
+        # Add content with timestamp if we have one, otherwise just the text
+        if current_timestamp:
+            result.append(f"{current_timestamp} {line}")
+            current_timestamp = ""
+        elif line.strip():
+            result.append(line)
+
+    return "\n".join(result)
 
 
 def archive_video(video_dir: Path, archive_dir: Path, status_path: Path) -> None:
@@ -140,11 +216,13 @@ def archive_video(video_dir: Path, archive_dir: Path, status_path: Path) -> None
         return
 
     meta = json.loads(meta_path.read_text(encoding="utf-8"))
-    date_key = meta["date"]  # YYYYMMDD (publication date)
+    pub_date = meta["date"]  # YYYYMMDD (publication date, used as fallback)
     title = meta["title"]
 
     # Extract lecture date from title, fallback to publication date
-    date_str = _extract_date_from_title(title, date_key)
+    date_str = _extract_date_from_title(title, pub_date)
+    # Convert YYYY-MM-DD back to YYYYMMDD for status.md consistency
+    date_key = date_str.replace("-", "")
 
     txt_path = video_dir / "transcript.txt"
     if not txt_path.exists():
@@ -156,14 +234,23 @@ def archive_video(video_dir: Path, archive_dir: Path, status_path: Path) -> None
     dest = get_archive_path(date_str, archive_dir)
     dest.write_text(content, encoding="utf-8")
 
-    # Copy original subtitle file if it exists
-    subtitle_files = list(video_dir.glob("subtitle.*"))
-    if subtitle_files:
-        subtitle_src = subtitle_files[0]
-        subtitle_dest = dest.parent / f"{dest.stem}{subtitle_src.suffix}"
-        shutil.copy2(subtitle_src, subtitle_dest)
+    # Archive transcript with timestamps (from VTT file)
+    vtt_files = list(video_dir.glob("subtitle.*"))
+    if vtt_files:
+        vtt_src = vtt_files[0]
+        # Copy original VTT file
+        vtt_dest = dest.parent / f"{dest.stem}{vtt_src.suffix}"
+        shutil.copy2(vtt_src, vtt_dest)
+
+        # Generate markdown with timestamps
+        transcript_ts = _vtt_to_markdown(vtt_src)
+        if transcript_ts:
+            content_ts = format_markdown(meta, transcript_ts)
+            ts_dest = dest.parent / f"{dest.stem}-timestamps.md"
+            ts_dest.write_text(content_ts, encoding="utf-8")
 
     rel_link = f"./{archive_dir.name}/{date_str[:4]}/{dest.name}"
+    # Use extracted date (from title) and title for matching duplicates
     update_status_row(status_path, date_key, meta["title"], "🗂️ 已存在", rel_link)
 
     shutil.rmtree(video_dir)
@@ -183,7 +270,7 @@ def main() -> None:
 
     video_dirs = sorted(
         d for d in temp_dir.iterdir()
-        if d.is_dir() and not d.name.startswith("_")
+        if d.is_dir() and not d.name.startswith("._")
     )
     print(f"[03_archive] Processing {len(video_dirs)} video dir(s)...")
 

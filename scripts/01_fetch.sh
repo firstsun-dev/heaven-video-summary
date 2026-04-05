@@ -46,6 +46,7 @@ while IFS=$'\t' read -r video_id title upload_date duration channel; do
 
     # Skip if already archived (unless --rebuild-all)
     if [[ "$REBUILD_ALL" == "false" ]]; then
+        # Check status.md first
         if grep -q "^| $upload_date" "$ROOT_DIR/status.md" 2>/dev/null; then
             status_line=$(grep "^| $upload_date" "$ROOT_DIR/status.md" || true)
             if echo "$status_line" | grep -q "已存在"; then
@@ -53,6 +54,21 @@ while IFS=$'\t' read -r video_id title upload_date duration channel; do
                 _update_progress "$current" "$TOTAL" "$skipped" "⏭️ Already archived" "$title"
                 continue
             fi
+        fi
+
+        # Also check if markdown file exists in archive directory
+        archive_dir="$ROOT_DIR/${ARCHIVE_DIR:-youtube-dharma-talk}"
+        date_fmt="${upload_date:0:4}-${upload_date:4:2}-${upload_date:6:2}"
+        year="${date_fmt:0:4}"
+        if [[ -d "$archive_dir/$year" ]]; then
+            # Check if any file for this date exists and contains this title
+            for archive_file in "$archive_dir/$year/${date_fmt}"*.md; do
+                if [[ -f "$archive_file" ]] && grep -q "^title: $title$" "$archive_file" 2>/dev/null; then
+                    ((skipped++))
+                    _update_progress "$current" "$TOTAL" "$skipped" "⏭️ Already archived" "$title"
+                    continue 2
+                fi
+            done
         fi
     fi
 
@@ -84,6 +100,8 @@ while IFS=$'\t' read -r video_id title upload_date duration channel; do
             # Always download audio for Whisper re-transcription
             echo "  🎵 Downloading audio (rebuild mode)..."
             if ! yt-dlp -x --audio-format mp3 \
+                -f worstaudio \
+                --concurrent-fragments 4 \
                 -o "$ROOT_DIR/$TEMP_DIR/$video_id/incoming.%(ext)s" \
                 "$url"; then
                 echo "  ❌ Download failed: $title"
@@ -105,6 +123,8 @@ while IFS=$'\t' read -r video_id title upload_date duration channel; do
             # No subtitle — download audio for Whisper
             echo "  🎵 No subtitle found, downloading audio..."
             if ! yt-dlp -x --audio-format mp3 \
+                -f worstaudio \
+                --concurrent-fragments 4 \
                 -o "$ROOT_DIR/$TEMP_DIR/$video_id/incoming.%(ext)s" \
                 "$url"; then
                 echo "  ❌ Download failed: $title"
