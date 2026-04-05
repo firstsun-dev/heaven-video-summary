@@ -111,30 +111,31 @@ def update_status_row(
 
     Matches by both date and title: same date + same title = same entry.
     Data rows are sorted by date descending (newest first).
+    Title column contains Markdown link: [title](link)
     """
     if not status_path.exists():
         status_path.write_text(
             "# 影片處理狀態報告\n\n"
-            "| 日期       | 主題                               | 處理狀態   | 連結 |\n"
-            "|:-----------|:-----------------------------------|:-----------|:-----|\n",
+            "| 日期       | 主題                               | 處理狀態   |\n"
+            "|:-----------|:-----------------------------------|:----------|\n",
             encoding="utf-8",
         )
 
     lines = status_path.read_text(encoding="utf-8").splitlines(keepends=True)
-    new_row = f"| {date_key} | {title} | {status} | {link} |\n"
+    # Create Markdown link in title column
+    title_link = f"[{title}]({link})" if link else title
+    new_row = f"| {date_key} | {title_link} | {status} |\n"
 
     # Separate header from data rows
     header_lines = []
     data_lines = []
 
     for line in lines:
-        # Header is title, empty line, and separator line
-        if line.startswith("#") or line.strip() == "" or line.startswith("|:"):
+        # Header: title, empty line, separator, or column headers
+        if (line.startswith("#") or line.strip() == "" or
+            line.startswith("|:") or "| 日期" in line):
             header_lines.append(line)
-        # Header row: | 日期
-        elif "| 日期" in line:
-            header_lines.append(line)
-        # Data rows start with | and contain date
+        # Data rows: start with | and have YYYYMMDD date
         elif line.startswith("|"):
             data_lines.append(line)
 
@@ -142,8 +143,8 @@ def update_status_row(
     found = False
     updated_data_lines = []
     for line in data_lines:
-        # Extract date and title from existing row: | date | title | ... |
-        match = re.match(rf"^\|\s*(\d+)\s*\|\s*(.+?)\s*\|", line)
+        # Extract date and title from existing row: | date | [title](link) | status |
+        match = re.match(rf"^\|\s*(\d+)\s*\|\s*\[(.+?)\]\(.+?\)", line)
         if match:
             existing_date = match.group(1)
             existing_title = match.group(2)
