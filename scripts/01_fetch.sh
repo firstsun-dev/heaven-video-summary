@@ -15,6 +15,28 @@ fi
 TEMP_DIR="${TEMP_DIR:-temp}"
 mkdir -p "$ROOT_DIR/$TEMP_DIR"
 
+# Extract date from title (matches Python logic in 03_archive.py)
+_extract_date_from_title() {
+    local title="$1"
+    local fallback_date="$2"
+
+    # Try YYYYMMDD pattern (e.g., 20220904)
+    if [[ "$title" =~ ([0-9]{8}) ]]; then
+        local date_str="${BASH_REMATCH[1]}"
+        echo "${date_str:0:4}-${date_str:4:2}-${date_str:6:2}"
+        return 0
+    fi
+
+    # Try YYYY-MM-DD pattern
+    if [[ "$title" =~ ([0-9]{4}-[0-9]{2}-[0-9]{2}) ]]; then
+        echo "${BASH_REMATCH[1]}"
+        return 0
+    fi
+
+    # Fallback to upload date
+    echo "${fallback_date:0:4}-${fallback_date:4:2}-${fallback_date:6:2}"
+}
+
 echo "=== Stage 1: Fetching playlist ==="
 
 if [[ -z "${PLAYLIST_URL:-}" ]]; then
@@ -45,23 +67,15 @@ while IFS=$'\t' read -r video_id title upload_date duration channel; do
     fi
 
     # Skip if already archived (unless --rebuild-all)
-    if [[ "$REBUILD_ALL" == "false" ]]; then
-        # Check status.md first
-        if grep -q "^| $upload_date" "$ROOT_DIR/status.md" 2>/dev/null; then
-            status_line=$(grep "^| $upload_date" "$ROOT_DIR/status.md" || true)
-            if echo "$status_line" | grep -q "已存在"; then
-                ((skipped++))
-                _update_progress "$current" "$TOTAL" "$skipped" "⏭️ Already archived" "$title"
-                continue
-            fi
-        fi
-
-        # Also check if markdown file exists in archive directory
+    if [[ "$REBUILD_ALL" == "false" && "$upload_date" =~ ^[0-9]{8}$ ]]; then
         archive_dir="$ROOT_DIR/${ARCHIVE_DIR:-youtube-dharma-talk}"
-        date_fmt="${upload_date:0:4}-${upload_date:4:2}-${upload_date:6:2}"
+
+        # Extract date from title (same logic as 03_archive.py)
+        date_fmt=$(_extract_date_from_title "$title" "$upload_date")
         year="${date_fmt:0:4}"
+
+        # Check if any file for this date exists and contains this title
         if [[ -d "$archive_dir/$year" ]]; then
-            # Check if any file for this date exists and contains this title
             for archive_file in "$archive_dir/$year/${date_fmt}"*.md; do
                 if [[ -f "$archive_file" ]] && grep -q "^title: $title$" "$archive_file" 2>/dev/null; then
                     ((skipped++))

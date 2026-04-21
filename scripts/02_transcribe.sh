@@ -15,6 +15,28 @@ TEMP_DIR="${TEMP_DIR:-temp}"
 WHISPER_MODEL="${WHISPER_MODEL:-large-v3}"
 WHISPER_LANGUAGE="${WHISPER_LANGUAGE:-Chinese}"
 
+# Extract date from title (matches Python logic in 03_archive.py)
+_extract_date_from_title() {
+    local title="$1"
+    local fallback_date="$2"
+
+    # Try YYYYMMDD pattern (e.g., 20220904)
+    if [[ "$title" =~ ([0-9]{8}) ]]; then
+        local date_str="${BASH_REMATCH[1]}"
+        echo "${date_str:0:4}-${date_str:4:2}-${date_str:6:2}"
+        return 0
+    fi
+
+    # Try YYYY-MM-DD pattern
+    if [[ "$title" =~ ([0-9]{4}-[0-9]{2}-[0-9]{2}) ]]; then
+        echo "${BASH_REMATCH[1]}"
+        return 0
+    fi
+
+    # Fallback to upload date
+    echo "${fallback_date:0:4}-${fallback_date:4:2}-${fallback_date:6:2}"
+}
+
 echo "=== Stage 2: Transcription ==="
 
 # Scan all videos and categorize them
@@ -53,20 +75,20 @@ _transcribe_video() {
 
     ((current++))
 
-    # Skip if already archived in youtube-dharma-talk (check by title in file content)
-    video_date=$(jq -r '.date_fmt' "$video_dir/meta.json" 2>/dev/null || echo "")
-    if [[ -n "$video_date" ]]; then
+    # Skip if already archived (check if MD file exists)
+    video_date=$(jq -r '.date' "$video_dir/meta.json" 2>/dev/null || echo "")
+    if [[ -n "$video_date" && "$video_date" =~ ^[0-9]{8}$ ]]; then
         archive_dir="$ROOT_DIR/${ARCHIVE_DIR:-youtube-dharma-talk}"
-        year="${video_date:0:4}"
-        # Check if title exists in any archive file for this date
-        if ls "$archive_dir/$year/${video_date}"*.md 1>/dev/null 2>&1; then
-            for archive_file in "$archive_dir/$year/${video_date}"*.md; do
-                if grep -q "^# $title$" "$archive_file" 2>/dev/null; then
-                    ((skipped++))
-                    _update_progress "$current" "$total" "$skipped" "⏭️ Already archived" "$title" "newline"
-                    return 0
-                fi
-            done
+
+        # Extract date from title (same logic as 03_archive.py)
+        date_fmt=$(_extract_date_from_title "$title" "$video_date")
+        year="${date_fmt:0:4}"
+
+        # Check if any MD file exists for this date (including collision variants)
+        if ls "$archive_dir/$year/$date_fmt"*.md 1>/dev/null 2>&1; then
+            ((skipped++))
+            _update_progress "$current" "$total" "$skipped" "⏭️ Already archived" "$title" "newline"
+            return 0
         fi
     fi
 
