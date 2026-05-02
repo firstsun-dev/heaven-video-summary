@@ -166,7 +166,15 @@ jobs:
 
       - name: Sync to GDrive
         env:
-          RCLONE_REMOTE: "gdrive:buddhist-lectures"
+          RCLONE_REMOTE: "gdrive"
         run: |
-          echo "📤 Syncing payload to $RCLONE_REMOTE (deleting extra files)..."
-          rclone sync payload/ "$RCLONE_REMOTE" --progress
+          echo "📤 Syncing to GDrive root (deleting extra files in subdirs)..."
+          
+          # 直接同步子目錄到 GDrive 對應路徑，避免多餘層級
+          if [ -d "payload/youtube-dharma-talk" ]; then
+            rclone sync payload/youtube-dharma-talk "$RCLONE_REMOTE:youtube-dharma-talk" --progress
+          fi
+          
+          if [ -d "payload/legacy-speech" ]; then
+            rclone sync payload/legacy-speech "$RCLONE_REMOTE:legacy-speech" --progress
+          fi
