@@ -7,7 +7,13 @@ REBUILD_ALL=${1:-}
 echo "=== Stage 1: Fetching playlist ==="
 [[ -z "${PLAYLIST_URL:-}" ]] && { echo "❌ PLAYLIST_URL missing"; exit 1; }
 
-yt-dlp --flat-playlist --print "%(id)s	%(title)s	%(upload_date)s	%(duration_string)s	%(channel)s" \
+# Use extractor-args to spoof a mobile/ios client which is less likely to trigger bot detection
+# Also include oauth2 to allow for authentication if configured
+YTDLP_ARGS=(
+    --extractor-args "youtube:player-client=ios,android,web"
+)
+
+yt-dlp "${YTDLP_ARGS[@]}" --flat-playlist --print "%(id)s	%(title)s	%(upload_date)s	%(duration_string)s	%(channel)s" \
     "$PLAYLIST_URL" > "$ROOT_DIR/$TEMP_DIR/playlist.tsv"
 
 TOTAL=$(wc -l < "$ROOT_DIR/$TEMP_DIR/playlist.tsv" | xargs)
@@ -37,10 +43,10 @@ while IFS=$'\t' read -r vid title date dur chan; do
     mkdir -p "$ROOT_DIR/$TEMP_DIR/$vid"
     
     source_type="audio"
-    if [[ "$REBUILD_ALL" == "false" ]] && yt-dlp --write-subs --sub-langs "zh-Hant,zh-TW,zh" --skip-download -o "$ROOT_DIR/$TEMP_DIR/$vid/subtitle.%(ext)s" "$url" &>/dev/null; then
+    if [[ "$REBUILD_ALL" == "false" ]] && yt-dlp "${YTDLP_ARGS[@]}" --write-subs --sub-langs "zh-Hant,zh-TW,zh" --skip-download -o "$ROOT_DIR/$TEMP_DIR/$vid/subtitle.%(ext)s" "$url" &>/dev/null; then
         source_type="subtitle"
     else
-        yt-dlp -x --audio-format mp3 -f worstaudio --concurrent-fragments 4 -o "$ROOT_DIR/$TEMP_DIR/$vid/incoming.%(ext)s" "$url" || { echo "❌ Failed $title"; continue; }
+        yt-dlp "${YTDLP_ARGS[@]}" -x --audio-format mp3 -f worstaudio --concurrent-fragments 4 -o "$ROOT_DIR/$TEMP_DIR/$vid/incoming.%(ext)s" "$url" || { echo "❌ Failed $title"; continue; }
     fi
 
     jq -n --arg t "$title" --arg d "$date" --arg df "$date_fmt" --arg u "$url" --arg c "$chan" --arg dur "$dur" --arg s "$source_type" \
