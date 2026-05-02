@@ -7,4 +7,4 @@ temp/
 *_Merged.md
 .venv/
 __pycache__
-settings.local.json
+ settings.local.json
