@@ -135,4 +135,4 @@ jobs:
       - name: Run Sync
         run: bash scripts/04_merge_and_sync.sh
         env:
-          RCLONE_REMOTE: "gdrive:${{ vars.GDRIVE_PATH || 'buddhist-lectures' }}"
+          RCLONE_REMOTE: "gdrive:buddhist-lectures"
