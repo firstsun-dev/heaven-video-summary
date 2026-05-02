@@ -19,7 +19,7 @@
 | Create | `scripts/01_fetch.sh` | Fetch playlist metadata; download subtitles or audio |
 | Create | `scripts/02_transcribe.sh` | Whisper on audio; convert VTT/SRT to plain TXT |
 | Create | `scripts/03_archive.py` | Format Markdown, archive by date, update status.md |
-| Create | `scripts/04_merge_and_sync.sh` | Year-merge all MDs; rclone push to Google Drive |
+| Create | `scripts/04_merge.sh` | Year-merge all MDs; rclone push to Google Drive |
 | Create | `.gitlab-ci.yml` | 4-stage CI; archive job commits back to repo |
 | Create | `.gitignore` | Ignore temp/, audio, subtitle, and merged files |
 | Create | `tests/test_archive.py` | pytest unit tests for 03_archive.py |
@@ -324,10 +324,10 @@ EOF
 bash -n scripts/02_transcribe.sh && echo "Syntax OK"
 bash scripts/02_transcribe.sh
 
-[[ -f "$TEMP_DIR/vid_abc123/transcript.txt" ]] || { echo "FAIL: transcript.txt missing"; exit 1; }
-grep -q "南無阿彌陀佛" "$TEMP_DIR/vid_abc123/transcript.txt" || { echo "FAIL: content missing"; exit 1; }
+[[ -f "$TEMP_DIR/vid_abc123/transcript.md" ]] || { echo "FAIL: transcript.md missing"; exit 1; }
+grep -q "南無阿彌陀佛" "$TEMP_DIR/vid_abc123/transcript.md" || { echo "FAIL: content missing"; exit 1; }
 # Duplicated line should appear only once
-count=$(grep -c "今天我們來講一個故事" "$TEMP_DIR/vid_abc123/transcript.txt")
+count=$(grep -c "今天我們來講一個故事" "$TEMP_DIR/vid_abc123/transcript.md")
 [[ "$count" -eq 1 ]] || { echo "FAIL: duplicate line not deduplicated (count=$count)"; exit 1; }
 
 echo "PASS: smoke_02_transcribe"
@@ -383,7 +383,7 @@ for video_dir in "$ROOT_DIR/$TEMP_DIR"/*/; do
     TITLE=$(jq -r '.title' "$video_dir/meta.json")
 
     # Idempotent: skip if already transcribed
-    if [[ -f "$video_dir/transcript.txt" ]]; then
+    if [[ -f "$video_dir/transcript.md" ]]; then
         echo "Skipping (done): $TITLE"
         continue
     fi
@@ -394,11 +394,11 @@ for video_dir in "$ROOT_DIR/$TEMP_DIR"/*/; do
 
     if [[ -n "$VTT" ]]; then
         echo "Converting VTT: $TITLE"
-        _vtt_to_txt "$VTT" "$video_dir/transcript.txt"
+        _vtt_to_txt "$VTT" "$video_dir/transcript.md"
         echo "  → done"
     elif [[ -n "$SRT" ]]; then
         echo "Converting SRT: $TITLE"
-        _srt_to_txt "$SRT" "$video_dir/transcript.txt"
+        _srt_to_txt "$SRT" "$video_dir/transcript.md"
         echo "  → done"
     elif [[ -n "$AUDIO" ]]; then
         echo "Whisper ($WHISPER_MODEL): $TITLE"
@@ -407,9 +407,9 @@ for video_dir in "$ROOT_DIR/$TEMP_DIR"/*/; do
             --language "$WHISPER_LANGUAGE" \
             --output_format txt \
             --output_dir "$video_dir"; then
-            # Whisper names output after the input file; normalize to transcript.txt
-            WHISPER_OUT=$(ls "${AUDIO%.*}.txt" 2>/dev/null || ls "$video_dir"/*.txt 2>/dev/null | head -1 || true)
-            [[ -n "$WHISPER_OUT" ]] && mv "$WHISPER_OUT" "$video_dir/transcript.txt"
+            # Whisper names output after the input file; normalize to transcript.md
+            WHISPER_OUT=$(ls "${AUDIO%.*}.md" 2>/dev/null || ls "$video_dir"/*.md 2>/dev/null | head -1 || true)
+            [[ -n "$WHISPER_OUT" ]] && mv "$WHISPER_OUT" "$video_dir/transcript.md"
             echo "  → done"
         else
             echo "  ❌ Transcription failed: $TITLE"
@@ -578,7 +578,7 @@ def test_archive_video_creates_md_and_cleans_temp(tmp_path, monkeypatch):
         "duration": "45:30",
     }
     (video_dir / "meta.json").write_text(json.dumps(meta, ensure_ascii=False), encoding="utf-8")
-    (video_dir / "transcript.txt").write_text("逐字稿內容在此", encoding="utf-8")
+    (video_dir / "transcript.md").write_text("逐字稿內容在此", encoding="utf-8")
 
     arch.archive_video(video_dir, archive_dir)
 
@@ -687,10 +687,10 @@ def archive_video(video_dir: Path, archive_dir: Path) -> None:
         return
 
     meta = json.loads(meta_file.read_text(encoding="utf-8"))
-    transcript_file = video_dir / "transcript.txt"
+    transcript_file = video_dir / "transcript.md"
 
     if not transcript_file.exists():
-        print(f"  ⚠️  No transcript.txt for {meta['title']}, skipping")
+        print(f"  ⚠️  No transcript.md for {meta['title']}, skipping")
         return
 
     dest = get_archive_path(meta["date"], archive_dir)
@@ -776,10 +776,10 @@ git commit -m "feat: implement 03_archive.py with pytest coverage"
 
 ---
 
-### Task 5: 04_merge_and_sync.sh — Year Merge & rclone Sync
+### Task 5: 04_merge.sh — Year Merge & rclone Sync
 
 **Files:**
-- Create: `scripts/04_merge_and_sync.sh`
+- Create: `scripts/04_merge.sh`
 
 - [ ] **Step 1: Create fixture and verify failure**
 
@@ -789,10 +789,10 @@ echo -e "---\ntitle: A\n---\n\ncontent A" > temp_merge_test/youtube-dharma-talk/
 echo -e "---\ntitle: B\n---\n\ncontent B" > temp_merge_test/youtube-dharma-talk/2025/2025-01-02.md
 
 ARCHIVE_DIR=temp_merge_test/youtube-dharma-talk RCLONE_REMOTE="dummy:/" \
-    bash scripts/04_merge_and_sync.sh --dry-run 2>&1 || echo "Expected failure (not implemented yet)"
+    bash scripts/04_merge.sh --dry-run 2>&1 || echo "Expected failure (not implemented yet)"
 ```
 
-- [ ] **Step 2: Implement scripts/04_merge_and_sync.sh**
+- [ ] **Step 2: Implement scripts/04_merge.sh**
 
 ```bash
 #!/usr/bin/env bash
@@ -840,14 +840,14 @@ echo "=== Stage 4 complete ==="
 - [ ] **Step 3: Make executable**
 
 ```bash
-chmod +x scripts/04_merge_and_sync.sh
+chmod +x scripts/04_merge.sh
 ```
 
 - [ ] **Step 4: Test with fixture**
 
 ```bash
 ARCHIVE_DIR=temp_merge_test/youtube-dharma-talk RCLONE_REMOTE="dummy:/" \
-    bash scripts/04_merge_and_sync.sh --dry-run
+    bash scripts/04_merge.sh --dry-run
 
 grep "content A" temp_merge_test/youtube-dharma-talk/2025_Merged.md && echo "content A OK"
 grep "content B" temp_merge_test/youtube-dharma-talk/2025_Merged.md && echo "content B OK"
@@ -868,8 +868,8 @@ content B OK
 - [ ] **Step 5: Commit**
 
 ```bash
-git add scripts/04_merge_and_sync.sh
-git commit -m "feat: implement 04_merge_and_sync.sh year merge and rclone sync"
+git add scripts/04_merge.sh
+git commit -m "feat: implement 04_merge.sh year merge and rclone sync"
 ```
 
 ---
@@ -908,7 +908,7 @@ _stage() {
 _stage 1 "Fetch"         "bash $SCRIPT_DIR/01_fetch.sh $REBUILD_ALL"
 _stage 2 "Transcribe"    "bash $SCRIPT_DIR/02_transcribe.sh"
 _stage 3 "Archive"       "python3 $SCRIPT_DIR/03_archive.py"
-_stage 4 "Merge & Sync"  "bash $SCRIPT_DIR/04_merge_and_sync.sh"
+_stage 4 "Merge & Sync"  "bash $SCRIPT_DIR/04_merge.sh"
 
 echo ""
 echo "✅ Pipeline complete."
@@ -992,7 +992,7 @@ sync:
   stage: sync
   script:
     - source config.env
-    - bash scripts/04_merge_and_sync.sh
+    - bash scripts/04_merge.sh
 ```
 
 > **Required GitLab CI/CD Variables (Settings → CI/CD → Variables):**

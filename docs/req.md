@@ -102,7 +102,7 @@ whisper incoming.mp3 --model turbo --language Chinese --output_format txt --outp
 
 ### Step 3: 自動歸檔與合併 (Processing)
 
-1. 將 .txt 轉為 .md 並加上 Meta Data (標題、連結)。
+1. 將 .md 轉為 .md 並加上 Meta Data (標題、連結)。
 2. 存入 xxxx/2025/$(date + %y-%m-%d).md。
 3. 執行 cat 指令將當月所有檔案合併至 2025_Merged.md。
 

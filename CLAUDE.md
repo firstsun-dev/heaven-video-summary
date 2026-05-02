@@ -19,7 +19,7 @@ bash scripts/run.sh --rebuild-all
 bash scripts/01_fetch.sh [--rebuild-all]
 bash scripts/02_transcribe.sh
 python3 scripts/03_archive.py
-bash scripts/04_merge_and_sync.sh
+bash scripts/04_merge.sh
 ```
 
 ## Configuration
@@ -34,7 +34,7 @@ Optional fields (have defaults): `WHISPER_MODEL`, `WHISPER_LANGUAGE`, `ARCHIVE_D
 
 ```
 01_fetch.sh   → temp/{video_id}/meta.json + subtitle.*.vtt or incoming.mp3
-02_transcribe → temp/{video_id}/transcript.txt
+02_transcribe → temp/{video_id}/transcript.md
 03_archive.py → youtube-dharma-talk/{year}/{YYYY-MM-DD}.md + status.md updated
 04_merge      → youtube-dharma-talk/{year}_Merged.md → rclone → Google Drive
 ```
@@ -48,7 +48,7 @@ Optional fields (have defaults): `WHISPER_MODEL`, `WHISPER_LANGUAGE`, `ARCHIVE_D
 
 | File | Purpose |
 |:-----|:--------|
-| `scripts/03_archive.py` | Only Python file. Reads `temp/*/meta.json` + `transcript.txt`, writes Markdown, updates `status.md`. |
+| `scripts/03_archive.py` | Only Python file. Reads `temp/*/meta.json` + `transcript.md`, writes Markdown, updates `status.md`. |
 | `status.md` | Source of truth for what has been processed. Columns: date (YYYYMMDD), title, status emoji, link. |
 | `.gitlab-ci.yml` | 4-stage CI; `archive` stage auto-commits results back to the branch. |
 

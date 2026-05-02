@@ -56,7 +56,7 @@ bash scripts/02_transcribe.sh
 python3 scripts/03_archive.py
 
 # 第 4 階段：合併年度檔案並同步到 Google Drive
-bash scripts/04_merge_and_sync.sh
+bash scripts/04_merge.sh
 ```
 
 ### 方法 3：快速生成時間戳版本（從現有字幕）
@@ -82,7 +82,7 @@ python3 scripts/generate_timestamps.py
   └→ temp/{video_id}/subtitle.vtt（YouTube 字幕，若有）
        ↓
 02_transcribe.sh
-  └→ temp/{video_id}/transcript.txt（Whisper 轉錄）
+  └→ temp/{video_id}/transcript.md（Whisper 轉錄）
        ↓
 03_archive.py
   ├→ youtube-dharma-talk/{year}/{YYYY-MM-DD}.md（無時間戳）
@@ -90,7 +90,7 @@ python3 scripts/generate_timestamps.py
   ├→ youtube-dharma-talk/{year}/{YYYY-MM-DD}.vtt（原始字幕）
   └→ status.md（更新處理狀態）
        ↓
-04_merge_and_sync.sh
+04_merge.sh
   ├→ youtube-dharma-talk/{year}_Merged.md（年度合輯，無時間戳）
   ├→ youtube-dharma-talk/{year}_Merged-timestamps.md（年度合輯，含時間戳）
   └→ rclone sync 到 Google Drive
@@ -104,7 +104,7 @@ python3 scripts/generate_timestamps.py
 | `scripts/02_transcribe.sh` | 使用 Whisper 轉錄音訊為文字 |
 | `scripts/03_archive.py` | 轉換為 Markdown，產生含/不含時間戳的版本 |
 | `scripts/generate_timestamps.py` | 從 .vtt 快速生成 -timestamps.md（新增）|
-| `scripts/04_merge_and_sync.sh` | 合併年度檔案並同步到 Google Drive |
+| `scripts/04_merge.sh` | 合併年度檔案並同步到 Google Drive |
 | `status.md` | 處理狀態追蹤表（日期、標題、狀態、連結） |
 | `config.env` | 設定檔（PLAYLIST_URL、RCLONE_REMOTE 等） |
 

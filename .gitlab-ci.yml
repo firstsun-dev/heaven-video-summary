@@ -34,7 +34,7 @@ archive:
     - python3 scripts/03_archive.py
     - git config user.email "ci@gitlab.local"
     - git config user.name "GitLab CI"
-    - git add youtube-dharma-talk/ status.md
+    - git add youtube-dharma-talk/ status.md legacy-speech/ status-legacy.md
     - |
       if ! git diff --cached --quiet; then
         git pull --rebase origin "$CI_COMMIT_BRANCH"
@@ -45,6 +45,8 @@ archive:
     paths:
       - youtube-dharma-talk/
       - status.md
+      - legacy-speech/
+      - status-legacy.md
     expire_in: 7 days
 
 sync:

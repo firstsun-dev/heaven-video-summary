@@ -14,8 +14,9 @@
 管道分為四個主要階段：
 1.  **Fetch (01_fetch.sh)**: 擷取影片元資料與音訊檔 (`.mp3`)。
 2.  **Transcribe (02_transcribe.sh)**: 使用 Whisper 進行轉錄，支援時間戳輸出。
-3.  **Archive (03_archive.py)**: 生成 Markdown 檔案（含 YAML frontmatter）並更新 `status.md`。
-4.  **Sync (04_merge_and_sync.sh)**: 合併年度檔案並同步至 Google Drive。
+- **Archive (03_archive.py)**: 生成 Markdown 檔案（含 YAML frontmatter）並更新 `status.md`。
+- **Sync (04_merge.sh)**: 合併年度檔案並同步至 Google Drive。
+- **Legacy Transcribe (transcribe_legacy.py)**: 處理本地 Synology Drive 中的舊音訊檔。
 
 ## 運行與開發指令
 
@@ -23,7 +24,7 @@
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
-pip install -r requirements.txt
+pip install -r requirements.md
 brew install yt-dlp ffmpeg rclone jq
 ```
 
@@ -31,6 +32,9 @@ brew install yt-dlp ffmpeg rclone jq
 ```bash
 # 執行完整管道
 bash scripts/run.sh
+
+# 執行舊音訊轉錄 (Synology Drive)
+python3 scripts/transcribe_legacy.py
 
 # 重建模式（重新下載並轉錄）
 bash scripts/run.sh --rebuild-all
@@ -40,7 +44,7 @@ bash scripts/run.sh --rebuild-all
 - **抓取**: `bash scripts/01_fetch.sh`
 - **轉錄**: `bash scripts/02_transcribe.sh`
 - **存檔**: `python3 scripts/03_archive.py`
-- **同步**: `bash scripts/04_merge_and_sync.sh`
+- **同步**: `bash scripts/04_merge.sh`
 
 ## 開發規範
 - **腳本命名**: 使用 `0X_name.sh` 格式標註階段順序。

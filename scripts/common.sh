@@ -19,7 +19,9 @@ fi
 # Directory settings
 TEMP_DIR="${TEMP_DIR:-temp}"
 ARCHIVE_DIR="${ARCHIVE_DIR:-youtube-dharma-talk}"
+LEGACY_DIR="${LEGACY_DIR:-legacy-speech}"
 STATUS_FILE="$ROOT_DIR/status.md"
+LEGACY_STATUS_FILE="$ROOT_DIR/status-legacy.md"
 
 mkdir -p "$ROOT_DIR/$TEMP_DIR"
 

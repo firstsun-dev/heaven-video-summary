@@ -28,7 +28,7 @@ run_stage() {
 run_stage 1 "Fetch"      bash "$SCRIPT_DIR/01_fetch.sh" $FETCH_ARGS
 run_stage 2 "Transcribe" bash "$SCRIPT_DIR/02_transcribe.sh"
 run_stage 3 "Archive"    python3 "$SCRIPT_DIR/03_archive.py"
-run_stage 4 "Sync"       bash "$SCRIPT_DIR/04_merge_and_sync.sh"
+run_stage 4 "Sync"       bash "$SCRIPT_DIR/04_merge.sh"
 
 echo ""
 echo "================================"

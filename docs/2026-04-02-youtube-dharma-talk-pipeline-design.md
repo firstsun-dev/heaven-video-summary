@@ -18,7 +18,7 @@
 │   ├── 01_fetch.sh          # 抓播放清單、下載字幕或音檔
 │   ├── 02_transcribe.sh     # Whisper 本地轉錄
 │   ├── 03_archive.py        # 格式化 Markdown、寫入 meta data、歸檔
-│   └── 04_merge_and_sync.sh # 年度合併 + rclone 同步至 Google Drive
+│   └── 04_merge.sh # 年度合併 + rclone 同步至 Google Drive
 ├── config.env               # 設定檔
 ├── youtube-dharma-talk/      # 逐字稿歸檔目錄
 │   └── {year}/
@@ -54,14 +54,14 @@
 ### Stage 2: `02_transcribe.sh` — 語音轉文字
 
 1. 掃描 `temp/` 下所有資料夾
-2. 有音檔且無 `.txt` → 執行 Whisper 轉錄
-3. 有字幕檔（`.vtt`/`.srt`）→ 轉為 `.txt`（去除時間碼）
-4. 輸出：每個 `temp/{video_id}/` 下都有 `.txt`
+2. 有音檔且無 `.md` → 執行 Whisper 轉錄
+3. 有字幕檔（`.vtt`/`.srt`）→ 轉為 `.md`（去除時間碼）
+4. 輸出：每個 `temp/{video_id}/` 下都有 `.md`
 
 ### Stage 3: `03_archive.py` — 格式化與歸檔
 
 1. 掃描 `temp/` 下所有資料夾
-2. 讀取 `meta.json` + `.txt`，組裝 Markdown（含 YAML frontmatter）：
+2. 讀取 `meta.json` + `.md`，組裝 Markdown（含 YAML frontmatter）：
    ```markdown
    ---
    title: 影片標題
@@ -78,7 +78,7 @@
 5. 更新 `status.md`：`🔇 無字幕` / 新增 → `🗂️ 已存在` + 檔案路徑
 6. 清除該影片的 `temp/{video_id}/`
 
-### Stage 4: `04_merge_and_sync.sh` — 合併與同步
+### Stage 4: `04_merge.sh` — 合併與同步
 
 1. 將 `youtube-dharma-talk/{year}/` 下所有 `.md` 按日期排序合併為 `{year}_Merged.md`
 2. `rclone copy` 同步至 Google Drive
@@ -116,7 +116,7 @@ archive:
 
 sync:
   stage: sync
-  script: ./scripts/04_merge_and_sync.sh
+  script: ./scripts/04_merge.sh
 ```
 
 - `archive` 結束後 CI 將更新的檔案 commit + push 回 repo
@@ -141,9 +141,9 @@ sync:
 
 每個步驟可安全重複執行：
 - `01_fetch.sh`：已在 `temp/` 的不重複下載
-- `02_transcribe.sh`：已有 `.txt` 的不重複轉錄
+- `02_transcribe.sh`：已有 `.md` 的不重複轉錄
 - `03_archive.py`：已歸檔的不重複處理
-- `04_merge_and_sync.sh`：每次重新合併覆蓋
+- `04_merge.sh`：每次重新合併覆蓋
 
 ## 歷史補齊
 
