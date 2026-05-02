@@ -32,7 +32,6 @@ jobs:
           REBUILD_ARG=""
           if [ "${{ github.event.inputs.rebuild_all }}" == "true" ]; then REBUILD_ARG="--rebuild-all"; fi
           
-          # Setup cookies if available
           if [ -n "$YOUTUBE_COOKIES" ]; then
             echo "$YOUTUBE_COOKIES" > cookies.txt
             export YTDLP_COOKIES="cookies.txt"
@@ -81,7 +80,7 @@ jobs:
           retention-days: 1
 
   archive:
-    name: Step 3 - Archive
+    name: Step 3 - Archive & Merge
     needs: transcribe
     runs-on: macos-latest
     steps:
@@ -95,6 +94,9 @@ jobs:
           
       - name: Run Archive
         run: python3 scripts/03_archive.py
+
+      - name: Run Merge
+        run: bash scripts/04_merge.sh
         
       - name: Commit and Push Changes
         run: |
@@ -102,7 +104,7 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add youtube-dharma-talk/ status.md legacy-speech/ status-legacy.md
           if ! git diff --cached --quiet; then
-            git commit -m "chore: archive new transcripts [skip ci]"
+            git commit -m "chore: archive and merge new transcripts [skip ci]"
             git push
           fi
           
@@ -112,17 +114,47 @@ jobs:
           name: archive-results
           path: |
             youtube-dharma-talk/
-            status.md
             legacy-speech/
+            status.md
             status-legacy.md
+          if-no-files-found: ignore
           retention-days: 7
 
-  sync:
-    name: Step 4 - Sync
+  prepare:
+    name: Step 4 - Prepare TXT
     needs: archive
-    runs-on: macos-latest
+    runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - name: Download Final Artifacts
+        uses: actions/download-artifact@v6
+        with:
+          name: archive-results
+          path: payload/
+          
+      - name: Convert MD to TXT
+        run: |
+          echo "🔄 Converting .md to .txt for GDrive..."
+          find payload -name "*.md" -type f -exec bash -c 'mv "$1" "${1%.md}.txt"' _ {} \;
+          # Remove status files as they are for repo only
+          rm -f payload/status.txt payload/status-legacy.txt
+          
+      - name: Upload GDrive Payload
+        uses: actions/upload-artifact@v6
+        with:
+          name: gdrive-payload
+          path: payload/
+          retention-days: 1
+
+  sync:
+    name: Step 5 - Sync
+    needs: prepare
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download GDrive Payload
+        uses: actions/download-artifact@v6
+        with:
+          name: gdrive-payload
+          path: payload/
       
       - name: Setup rclone
         uses: firstsun-dev/.github/actions/setup-rclone@main
@@ -132,42 +164,9 @@ jobs:
           gdrive_token: ${{ secrets.GDRIVE_TOKEN }}
           gdrive_folder_id: ${{ vars.GDRIVE_FOLDER_ID || '1otgdW74CgqyBdQ2amniGeCUOToSIDpte' }}
 
-      - name: Run Merge
-        run: bash scripts/04_merge.sh
-
       - name: Sync to GDrive
         env:
           RCLONE_REMOTE: "gdrive:buddhist-lectures"
         run: |
-          echo "📤 Preparing files for GDrive (converting .md to .txt)..."
-          
-          sync_to_gdrive() {
-            local local_src="$1"
-            local remote_dest="$2"
-            local filter_rules="$3"
-            
-            local temp_sync=$(mktemp -d)
-            
-            # Use rclone with filters to copy matching files to a temp directory
-            # We apply filters in order: first exclude/include, then exclude everything else
-            rclone copy "$local_src" "$temp_sync" $filter_rules
-            
-            # Rename .md to .txt in temp directory
-            find "$temp_sync" -name "*.md" -type f -exec bash -c 'mv "$1" "${1%.md}.txt"' _ {} \;
-            
-            # Sync temp directory to GDrive
-            rclone copy "$temp_sync" "$RCLONE_REMOTE/$remote_dest"
-            
-            rm -rf "$temp_sync"
-          }
-
-          # Sync YouTube Dharma Talks:
-          # Filter: Include Merged files AND all other .md files, but handle them in one go to be efficient
-          sync_to_gdrive "youtube-dharma-talk" "youtube-dharma-talk" "--filter + **/*.md --filter - **"
-          rclone copy "youtube-dharma-talk" "$RCLONE_REMOTE/youtube-dharma-talk" --include "**/*.vtt"
-          
-          # Sync Legacy Speech
-          if [ -d "legacy-speech" ]; then
-            echo "📤 Syncing legacy-speech..."
-            sync_to_gdrive "legacy-speech" "legacy-speech" "--filter + **/*.md --filter - **"
-          fi
+          echo "📤 Syncing payload to $RCLONE_REMOTE..."
+          rclone copy payload/ "$RCLONE_REMOTE" --progress
