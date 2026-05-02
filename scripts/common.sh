@@ -13,7 +13,7 @@ fi
 
 # Activate venv if present
 if [[ -f "$ROOT_DIR/.venv/bin/activate" ]]; then
-    source "$ROOT_DIR/.venv/bin/activate"
+    [[ -d "$ROOT_DIR/.venv" ]] && source "$ROOT_DIR/.venv/bin/activate"
 fi
 
 # Directory settings

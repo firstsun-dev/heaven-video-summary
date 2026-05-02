@@ -56,10 +56,13 @@ jobs:
         uses: astral-sh/setup-uv@v5
         with:
           enable-cache: true
+          python-version: '3.12'
           
       - name: Run Transcribe
         run: |
-          uv pip install mlx-whisper
+          uv venv
+          source .venv/bin/activate
+          uv pip install -r requirements.txt
           bash scripts/02_transcribe.sh
         
       - name: Upload Transcribed Artifacts
