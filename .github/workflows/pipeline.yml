@@ -2,7 +2,7 @@ name: YouTube Dharma Talk Pipeline
 
 on:
   schedule:
-    - cron: '0 0 * * *'
+    - cron: '30 18 * * *'
   workflow_dispatch:
     inputs:
       rebuild_all:
