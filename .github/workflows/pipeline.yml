@@ -113,14 +113,12 @@ jobs:
   sync:
     name: Step 4 - Sync
     needs: archive
-    runs-on: ubuntu-latest
+    runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
       
       - name: Setup rclone
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y rclone
+        run: brew install rclone
         
       - name: Configure rclone
         run: |
@@ -137,4 +135,4 @@ jobs:
       - name: Run Sync
         run: bash scripts/04_merge_and_sync.sh
         env:
-          RCLONE_REMOTE: "gdrive:${{ vars.GDRIVE_PATH || 'buddhist-dharma-talks' }}"
+          RCLONE_REMOTE: "gdrive:${{ vars.GDRIVE_PATH || 'buddhist-lectures' }}"
