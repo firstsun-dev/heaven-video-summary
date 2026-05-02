@@ -15,6 +15,12 @@ YTDLP_ARGS=(
     --user-agent "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:135.0) Gecko/20100101 Firefox/135.0"
 )
 
+# Use cookies if provided via environment variable
+if [[ -n "${YTDLP_COOKIES:-}" && -f "$YTDLP_COOKIES" ]]; then
+    YTDLP_ARGS+=(--cookies "$YTDLP_COOKIES")
+    echo "🍪 Using provided YouTube cookies"
+fi
+
 yt-dlp "${YTDLP_ARGS[@]}" --flat-playlist --print "%(id)s	%(title)s	%(upload_date)s	%(duration_string)s	%(channel)s" \
     "$PLAYLIST_URL" > "$ROOT_DIR/$TEMP_DIR/playlist.tsv"
 

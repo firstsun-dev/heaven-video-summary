@@ -27,9 +27,17 @@ jobs:
       - name: Run Fetch
         env:
           PLAYLIST_URL: ${{ vars.PLAYLIST_URL || 'https://m.youtube.com/playlist?list=PLefw8Oiz6WU-s263yJOCb_dFznzQ2CBV4' }}
+          YOUTUBE_COOKIES: ${{ secrets.YOUTUBE_COOKIES }}
         run: |
           REBUILD_ARG=""
           if [ "${{ github.event.inputs.rebuild_all }}" == "true" ]; then REBUILD_ARG="--rebuild-all"; fi
+          
+          # Setup cookies if available
+          if [ -n "$YOUTUBE_COOKIES" ]; then
+            echo "$YOUTUBE_COOKIES" > cookies.txt
+            export YTDLP_COOKIES="cookies.txt"
+          fi
+          
           bash scripts/01_fetch.sh $REBUILD_ARG
           
       - name: Upload Temp Artifacts
