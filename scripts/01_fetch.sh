@@ -7,10 +7,12 @@ REBUILD_ALL=${1:-}
 echo "=== Stage 1: Fetching playlist ==="
 [[ -z "${PLAYLIST_URL:-}" ]] && { echo "❌ PLAYLIST_URL missing"; exit 1; }
 
-# Use extractor-args to spoof a mobile/ios client which is less likely to trigger bot detection
-# Also include oauth2 to allow for authentication if configured
+# Use extractor-args to spoof modern clients and disable problematic ones (like android_sdkless)
+# Also explicitly use deno for JS runtime to solve challenges
 YTDLP_ARGS=(
-    --extractor-args "youtube:player-client=ios,android,web"
+    --extractor-args "youtube:player-client=ios,web,default;-android_sdkless"
+    --js-runtime deno
+    --user-agent "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:135.0) Gecko/20100101 Firefox/135.0"
 )
 
 yt-dlp "${YTDLP_ARGS[@]}" --flat-playlist --print "%(id)s	%(title)s	%(upload_date)s	%(duration_string)s	%(channel)s" \
