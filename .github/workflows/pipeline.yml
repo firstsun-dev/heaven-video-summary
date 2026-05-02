@@ -1,0 +1,135 @@
+name: YouTube Dharma Talk Pipeline
+
+on:
+  schedule:
+    - cron: '0 0 * * *' # 每天凌晨執行一次 (GitLab schedule)
+  workflow_dispatch:   # 手動觸發 (GitLab web)
+    inputs:
+      rebuild_all:
+        description: '是否重新處理所有影片 (--rebuild-all)'
+        required: false
+        default: 'false'
+        type: boolean
+
+permissions:
+  contents: write
+
+jobs:
+  fetch:
+    name: Step 1 - Fetch
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Environment
+        run: |
+          brew install yt-dlp ffmpeg jq
+          
+      - name: Run Fetch
+        env:
+          PLAYLIST_URL: ${{ vars.PLAYLIST_URL || 'https://m.youtube.com/playlist?list=PLefw8Oiz6WU-s263yJOCb_dFznzQ2CBV4' }}
+        run: |
+          REBUILD_ARG=""
+          if [ "${{ github.event.inputs.rebuild_all }}" == "true" ]; then REBUILD_ARG="--rebuild-all"; fi
+          bash scripts/01_fetch.sh $REBUILD_ARG
+          
+      - name: Upload Temp Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: temp-data
+          path: temp/
+          retention-days: 1
+
+  transcribe:
+    name: Step 2 - Transcribe
+    needs: fetch
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Download Temp Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: temp-data
+          path: temp/
+          
+      - name: Setup Python & MLX Whisper
+        run: |
+          python3 -m pip install mlx-whisper
+          
+      - name: Run Transcribe
+        run: bash scripts/02_transcribe.sh
+        
+      - name: Upload Transcribed Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: transcribed-data
+          path: temp/
+          retention-days: 1
+
+  archive:
+    name: Step 3 - Archive
+    needs: transcribe
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Download Transcribed Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: transcribed-data
+          path: temp/
+          
+      - name: Run Archive
+        run: python3 scripts/03_archive.py
+        
+      - name: Commit and Push Changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add youtube-dharma-talk/ status.md
+          if ! git diff --cached --quiet; then
+            git commit -m "chore: archive new transcripts [skip ci]"
+            git push
+          fi
+          
+      - name: Upload Final Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: archive-results
+          path: |
+            youtube-dharma-talk/
+            status.md
+          retention-days: 7
+
+  sync:
+    name: Step 4 - Sync
+    needs: archive
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup rclone
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y rclone
+        
+      - name: Configure rclone
+        run: |
+          mkdir -p ~/.config/rclone
+          cat > ~/.config/rclone/rclone.conf << EOF
+          [gdrive]
+          type = drive
+          client_id = ${{ secrets.GDRIVE_CLIENT_ID }}
+          client_secret = ${{ secrets.GDRIVE_CLIENT_SECRET }}
+          token = ${{ secrets.GDRIVE_TOKEN }}
+          root_folder_id = ${{ vars.GDRIVE_FOLDER_ID || '1otgdW74CgqyBdQ2amniGeCUOToSIDpte' }}
+          EOF
+
+      - name: Run Sync
+        run: |
+          # 使用在 rclone.conf 中定義的 [gdrive] 遠端
+          bash scripts/04_merge_and_sync.sh
+        env:
+          RCLONE_REMOTE: "gdrive:${{ vars.GDRIVE_PATH || 'NotebookLM_Sources' }}"
+
