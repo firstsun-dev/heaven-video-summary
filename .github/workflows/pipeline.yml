@@ -168,5 +168,5 @@ jobs:
         env:
           RCLONE_REMOTE: "gdrive:buddhist-lectures"
         run: |
-          echo "📤 Syncing payload to $RCLONE_REMOTE..."
-          rclone copy payload/ "$RCLONE_REMOTE" --progress
+          echo "📤 Syncing payload to $RCLONE_REMOTE (deleting extra files)..."
+          rclone sync payload/ "$RCLONE_REMOTE" --progress
