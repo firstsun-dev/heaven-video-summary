@@ -2,8 +2,8 @@ name: YouTube Dharma Talk Pipeline
 
 on:
   schedule:
-    - cron: '0 0 * * *' # 每天凌晨執行一次 (GitLab schedule)
-  workflow_dispatch:   # 手動觸發 (GitLab web)
+    - cron: '0 0 * * *'
+  workflow_dispatch:
     inputs:
       rebuild_all:
         description: '是否重新處理所有影片 (--rebuild-all)'
@@ -22,8 +22,7 @@ jobs:
       - uses: actions/checkout@v4
       
       - name: Setup Environment
-        run: |
-          brew install yt-dlp ffmpeg jq
+        run: brew install yt-dlp ffmpeg jq
           
       - name: Run Fetch
         env:
@@ -53,12 +52,15 @@ jobs:
           name: temp-data
           path: temp/
           
-      - name: Setup Python & MLX Whisper
-        run: |
-          python3 -m pip install mlx-whisper
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
           
       - name: Run Transcribe
-        run: bash scripts/02_transcribe.sh
+        run: |
+          uv pip install mlx-whisper
+          bash scripts/02_transcribe.sh
         
       - name: Upload Transcribed Artifacts
         uses: actions/upload-artifact@v4
@@ -127,9 +129,6 @@ jobs:
           EOF
 
       - name: Run Sync
-        run: |
-          # 使用在 rclone.conf 中定義的 [gdrive] 遠端
-          bash scripts/04_merge_and_sync.sh
+        run: bash scripts/04_merge_and_sync.sh
         env:
-          RCLONE_REMOTE: "gdrive:${{ vars.GDRIVE_PATH || 'NotebookLM_Sources' }}"
-
+          RCLONE_REMOTE: "gdrive:${{ vars.GDRIVE_PATH || 'buddhist-dharma-talks' }}"
