@@ -14,15 +14,12 @@ on:
 permissions:
   contents: write
 
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-
 jobs:
   fetch:
     name: Step 1 - Fetch
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       
       - name: Setup Environment
         run: brew install yt-dlp ffmpeg jq
@@ -36,7 +33,7 @@ jobs:
           bash scripts/01_fetch.sh $REBUILD_ARG
           
       - name: Upload Temp Artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: temp-data
           path: temp/
@@ -47,10 +44,10 @@ jobs:
     needs: fetch
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       
       - name: Download Temp Artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v6
         with:
           name: temp-data
           path: temp/
@@ -69,7 +66,7 @@ jobs:
           bash scripts/02_transcribe.sh
         
       - name: Upload Transcribed Artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: transcribed-data
           path: temp/
@@ -80,10 +77,10 @@ jobs:
     needs: transcribe
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       
       - name: Download Transcribed Artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v6
         with:
           name: transcribed-data
           path: temp/
@@ -102,7 +99,7 @@ jobs:
           fi
           
       - name: Upload Final Artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: archive-results
           path: |
@@ -115,7 +112,7 @@ jobs:
     needs: archive
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       
       - name: Setup rclone
         run: brew install rclone
