@@ -11,6 +11,9 @@ on:
         default: 'false'
         type: boolean
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 permissions:
   contents: write
 
@@ -19,7 +22,7 @@ jobs:
     name: Step 1 - Fetch
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       
       - name: Setup Environment
         run: brew install yt-dlp ffmpeg jq
@@ -40,7 +43,7 @@ jobs:
           bash scripts/01_fetch.sh $REBUILD_ARG
           
       - name: Upload Temp Artifacts
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: temp-data
           path: temp/
@@ -51,10 +54,10 @@ jobs:
     needs: fetch
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       
       - name: Download Temp Artifacts
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v7
         with:
           name: temp-data
           path: temp/
@@ -73,7 +76,7 @@ jobs:
           bash scripts/02_transcribe.sh
         
       - name: Upload Transcribed Artifacts
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: transcribed-data
           path: temp/
@@ -84,10 +87,10 @@ jobs:
     needs: transcribe
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       
       - name: Download Transcribed Artifacts
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v7
         with:
           name: transcribed-data
           path: temp/
@@ -109,7 +112,7 @@ jobs:
           fi
           
       - name: Upload Final Artifacts
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: archive-results
           path: |
@@ -126,7 +129,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Download Final Artifacts
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v7
         with:
           name: archive-results
           path: payload/
@@ -139,7 +142,7 @@ jobs:
           rm -f payload/status.txt payload/status-legacy.txt
           
       - name: Upload GDrive Payload
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: gdrive-payload
           path: payload/
@@ -151,7 +154,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Download GDrive Payload
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v7
         with:
           name: gdrive-payload
           path: payload/
@@ -170,7 +173,6 @@ jobs:
         run: |
           echo "📤 Syncing to GDrive root (deleting extra files in subdirs)..."
           
-          # 直接同步子目錄到 GDrive 對應路徑，避免多餘層級
           if [ -d "payload/youtube-dharma-talk" ]; then
             rclone sync payload/youtube-dharma-talk "$RCLONE_REMOTE:youtube-dharma-talk" --progress
           fi
