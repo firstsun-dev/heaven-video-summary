@@ -144,17 +144,13 @@ jobs:
           sync_to_gdrive() {
             local local_src="$1"
             local remote_dest="$2"
-            local include_pattern="$3"
-            local exclude_pattern="${4:-}"
+            local filter_rules="$3"
             
             local temp_sync=$(mktemp -d)
             
-            # Use rclone to copy matching files to a temp directory
-            if [ -n "$exclude_pattern" ]; then
-              rclone copy "$local_src" "$temp_sync" --include "$include_pattern" --exclude "$exclude_pattern"
-            else
-              rclone copy "$local_src" "$temp_sync" --include "$include_pattern"
-            fi
+            # Use rclone with filters to copy matching files to a temp directory
+            # We apply filters in order: first exclude/include, then exclude everything else
+            rclone copy "$local_src" "$temp_sync" $filter_rules
             
             # Rename .md to .txt in temp directory
             find "$temp_sync" -name "*.md" -type f -exec bash -c 'mv "$1" "${1%.md}.txt"' _ {} \;
@@ -165,14 +161,13 @@ jobs:
             rm -rf "$temp_sync"
           }
 
-          # Sync YouTube Dharma Talks
-          sync_to_gdrive "youtube-dharma-talk" "youtube-dharma-talk" "*_Merged*.md"
-          sync_to_gdrive "youtube-dharma-talk" "youtube-dharma-talk" "**/*.md" "*_Merged*.md"
+          # Sync YouTube Dharma Talks:
+          # Filter: Include Merged files AND all other .md files, but handle them in one go to be efficient
+          sync_to_gdrive "youtube-dharma-talk" "youtube-dharma-talk" "--filter + **/*.md --filter - **"
           rclone copy "youtube-dharma-talk" "$RCLONE_REMOTE/youtube-dharma-talk" --include "**/*.vtt"
           
           # Sync Legacy Speech
           if [ -d "legacy-speech" ]; then
             echo "📤 Syncing legacy-speech..."
-            sync_to_gdrive "legacy-speech" "legacy-speech" "*_Merged*.md"
-            sync_to_gdrive "legacy-speech" "legacy-speech" "**/*.md" "*_Merged*.md"
+            sync_to_gdrive "legacy-speech" "legacy-speech" "--filter + **/*.md --filter - **"
           fi
