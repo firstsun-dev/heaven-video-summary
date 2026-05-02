@@ -2,7 +2,9 @@
 source "$(dirname "$0")/common.sh"
 
 echo "=== Stage 4: Merge and Sync ==="
+shopt -s nullglob
 DIRS=("$ROOT_DIR/$ARCHIVE_DIR"/*/)
+echo "Found ${#DIRS[@]} year directories in $ROOT_DIR/$ARCHIVE_DIR"
 TOTAL=${#DIRS[@]}
 current=0
 
@@ -13,10 +15,23 @@ for dir in "${DIRS[@]}"; do
     update_progress "$current" "$TOTAL" 0 "📄 Merging" "$year"
 
     # Regular Merged
-    { echo "# $year 年度逐字稿合輯"; printf "\n"; for f in $(ls "$dir"*.md 2>/dev/null | grep -v -- "-timestamps.md" | sort); do cat "$f"; printf "\n---\n\n"; done; } > "$ROOT_DIR/$ARCHIVE_DIR/${year}_Merged.md"
+    files=("$dir"*.md)
+    reg_files=()
+    for f in "${files[@]}"; do
+        if [[ ! "$f" =~ "-timestamps.md" ]]; then
+            reg_files+=("$f")
+        fi
+    done
+    
+    if ((${#reg_files[@]} > 0)); then
+        { echo "# $year 年度逐字稿合輯"; printf "\n"; for f in $(printf "%s\n" "${reg_files[@]}" | sort); do cat "$f"; printf "\n---\n\n"; done; } > "$ROOT_DIR/$ARCHIVE_DIR/${year}_Merged.md"
+    fi
     
     # Timestamps Merged
-    { echo "# $year 年度逐字稿合輯（含時間戳）"; printf "\n"; for f in $(ls "$dir"*-timestamps.md 2>/dev/null | sort); do cat "$f"; printf "\n---\n\n"; done; } > "$ROOT_DIR/$ARCHIVE_DIR/${year}_Merged-timestamps.md"
+    ts_files=("$dir"*-timestamps.md)
+    if ((${#ts_files[@]} > 0)); then
+        { echo "# $year 年度逐字稿合輯（含時間戳）"; printf "\n"; for f in $(printf "%s\n" "${ts_files[@]}" | sort); do cat "$f"; printf "\n---\n\n"; done; } > "$ROOT_DIR/$ARCHIVE_DIR/${year}_Merged-timestamps.md"
+    fi
 done
 
 if [[ -n "${RCLONE_REMOTE:-}" ]]; then
