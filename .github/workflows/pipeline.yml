@@ -22,7 +22,7 @@ jobs:
     name: Step 1 - Fetch
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       
       - name: Setup Environment
         run: brew install yt-dlp ffmpeg jq
@@ -43,7 +43,7 @@ jobs:
           bash scripts/01_fetch.sh $REBUILD_ARG
           
       - name: Upload Temp Artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: temp-data
           path: temp/
@@ -54,10 +54,10 @@ jobs:
     needs: fetch
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       
       - name: Download Temp Artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v6
         with:
           name: temp-data
           path: temp/
@@ -76,7 +76,7 @@ jobs:
           bash scripts/02_transcribe.sh
         
       - name: Upload Transcribed Artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: transcribed-data
           path: temp/
@@ -87,10 +87,10 @@ jobs:
     needs: transcribe
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       
       - name: Download Transcribed Artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v6
         with:
           name: transcribed-data
           path: temp/
@@ -112,7 +112,7 @@ jobs:
           fi
           
       - name: Upload Final Artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: archive-results
           path: |
@@ -129,7 +129,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Download Final Artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v6
         with:
           name: archive-results
           path: payload/
@@ -142,7 +142,7 @@ jobs:
           rm -f payload/status.txt payload/status-legacy.txt
           
       - name: Upload GDrive Payload
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: gdrive-payload
           path: payload/
@@ -154,7 +154,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Download GDrive Payload
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v6
         with:
           name: gdrive-payload
           path: payload/
